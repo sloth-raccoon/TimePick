@@ -133,12 +133,12 @@
   <div class="container">
     <div id="name-section" class="input-space">
       <h2 id="username-label">Enter Username</h2>
-      <input type="text" id="username" placeholder="Your Username" />
+      <input type="text" id="username" placeholder="Your Username" required />
     </div>
 
     <div class="input-space">
       <h2 id="password-label">Enter Password</h2>
-      <input type="password" id="password" placeholder="Your Password" />
+      <input type="password" id="password" placeholder="Your Password" required />
     </div>
 
     <button class="create-schedule-btn" onclick="createSchedule()" id="create-btn">
@@ -168,8 +168,8 @@
         return;
       }
 
-      // Redirect to schedule.html instead of showing an alert
-      window.location.href = 'timepick choose date.html';  // Change to your desired page
+      // Redirect to SetUpDate.html
+      window.location.href = 'SetUpDate.html';
     }
 
     function howItWorks() {
