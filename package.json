@@ -5,11 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "echo 'This is a placeholder build script'"
-}
-
+    "build": "echo \"This is a placeholder build script\""
   },
-  
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sloth-raccoon/TimePick.git"
