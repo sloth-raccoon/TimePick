@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TimePick</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&display=swap" rel="stylesheet">
   <style>
@@ -15,6 +16,9 @@
       align-items: center;
       height: 100vh;
       justify-content: flex-start;
+      min-height: 100vh;
+      position: relative;
+      padding-top: 40px;
     }
 
     .language-switcher {
@@ -34,76 +38,88 @@
     h1 {
       font-family: 'Baloo 2', cursive;
       font-size: 60px;
-      margin-top: 120px;
-      margin-bottom: 10px;
       color: #4c4c6d;
       font-weight: 700;
       letter-spacing: 1.2px;
+      margin-top: 80px;
+      margin-bottom: -20px;
     }
 
-    form {
+    .container {
+      width: 380px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      padding: 30px 25px;
+      margin-top: 30px;
       display: flex;
       flex-direction: column;
-      width: 350px;
-      padding: 30px;
-      background-color: #ffffff;
-      border-radius: 16px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      align-items: center;
+      min-height: 300px;
     }
 
-    input[type="text"],
-    input[type="password"] {
+    h2 {
+      align-self: flex-start;
+      font-size: 18px;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .input-space {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 25px;
+      width: 100%;
+    }
+
+    input {
       padding: 12px;
-      margin: 15px 0;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
       font-size: 16px;
-      background-color: #f8fafc;
-      color: #333;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background-color: #f1f5f9;
+      width: 100%;
+      max-width: 360px;
+      color: #334155;
     }
 
     input::placeholder {
       color: #94a3b8;
     }
 
-    button {
-      margin-top: 20px;
-      padding: 10px;
-      width: 200px;
-      align-self: center;
+    button.create-schedule-btn {
+      width: 100%;
+      max-width: 300px;
       background-color: #3b82f6;
-      color: #ffffff;
+      color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 12px;
+      padding: 14px;
       font-size: 16px;
       cursor: pointer;
       transition: background-color 0.3s ease;
+      margin-top: 10px;
     }
 
-    button:hover {
+    button.create-schedule-btn:hover {
       background-color: #2563eb;
     }
 
-    .signup-link {
-      margin-top: 20px;
-      font-size: 14px;
-      text-align: center;
-      color: #6b7280;
-    }
-
-    .signup-link a {
-      color: #5b67a3;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    .signup-link a:hover {
+    .how-it-works {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: none;
+      border: none;
+      font-size: 16px;
       text-decoration: underline;
+      color: #007BFF;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-
   <!-- Language Switcher -->
   <div class="language-switcher">
     <select id="language-select">
@@ -112,36 +128,70 @@
     </select>
   </div>
 
-  <!-- Title -->
   <h1>TIMEPICK</h1>
 
-  <!-- Form -->
-  <form action="/login" method="POST">
-    <input type="text" name="username" id="username" placeholder="Username" required>
-    <input type="password" name="password" id="password" placeholder="Password" required>
-    <button type="submit" id="signin-btn">Sign In</button>
-    <div class="signup-link" id="signup-link">
-      Don't have an account? <a href="timepick signup.html" id="signup-link-anchor">Sign up here</a>
+  <div class="container">
+    <div id="name-section" class="input-space">
+      <h2 id="username-label">Enter Username</h2>
+      <input type="text" id="username" placeholder="Your Username" />
     </div>
-  </form>
-  
 
-  <!-- Script for Language Switching -->
+    <div class="input-space">
+      <h2 id="password-label">Enter Password</h2>
+      <input type="password" id="password" placeholder="Your Password" />
+    </div>
+
+    <button class="create-schedule-btn" onclick="createSchedule()" id="create-btn">
+      Create Your First Schedule
+    </button>
+  </div>
+
+  <button class="how-it-works" onclick="howItWorks()">How It Works</button>
+
   <script>
+    function createSchedule() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!username) {
+        alert('Please enter a username.');
+        return;
+      }
+
+      if (["user123", "timepicker", "admin"].includes(username)) {
+        alert('This username is already taken.');
+        return;
+      }
+
+      if (!password) {
+        alert('Please enter a password.');
+        return;
+      }
+
+      // Redirect to schedule.html instead of showing an alert
+      window.location.href = 'timepick choose date.html';  // Change to your desired page
+    }
+
+    function howItWorks() {
+      alert("This app helps you pick times easily!");
+    }
+
     const translations = {
       en: {
-        username: "Username",
-        password: "Password",
-        signIn: "Sign In",
-        signupText: "Don't have an account?",
-        signupLink: "Sign up here"
+        usernameLabel: "Enter Username",
+        passwordLabel: "Enter Password",
+        usernamePlaceholder: "Your Username",
+        passwordPlaceholder: "Your Password",
+        createButton: "Create Your First Schedule",
+        howItWorks: "How It Works"
       },
       zh: {
-        username: "用戶名稱",
-        password: "密碼",
-        signIn: "登入",
-        signupText: "還沒有帳號？",
-        signupLink: "點此註冊"
+        usernameLabel: "輸入用戶名稱",
+        passwordLabel: "輸入密碼",
+        usernamePlaceholder: "請輸入用戶名稱",
+        passwordPlaceholder: "請輸入密碼",
+        createButton: "建立您的第一個行程",
+        howItWorks: "如何使用"
       }
     };
 
@@ -149,20 +199,19 @@
 
     function updateLanguage(lang) {
       const t = translations[lang];
-      document.getElementById("username").placeholder = t.username;
-      document.getElementById("password").placeholder = t.password;
-      document.getElementById("signin-btn").textContent = t.signIn;
-      document.getElementById("signup-link").childNodes[0].textContent = t.signupText + " ";
-      document.getElementById("signup-link-anchor").textContent = t.signupLink;
+      document.getElementById("username-label").textContent = t.usernameLabel;
+      document.getElementById("password-label").textContent = t.passwordLabel;
+      document.getElementById("username").placeholder = t.usernamePlaceholder;
+      document.getElementById("password").placeholder = t.passwordPlaceholder;
+      document.getElementById("create-btn").textContent = t.createButton;
+      document.querySelector(".how-it-works").textContent = t.howItWorks;
     }
 
     select.addEventListener("change", () => {
       updateLanguage(select.value);
     });
 
-    // Set default language to English
     updateLanguage("en");
   </script>
-
 </body>
 </html>
