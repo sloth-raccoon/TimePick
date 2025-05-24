@@ -97,6 +97,7 @@
       border: 1px solid #cbd5e1;;
       padding: 10px;
       border-radius: 5px;
+      overflow-x: auto; /* 新增此行以允許水平滾動 */
     }
     h3 { /* Add style for h3 */
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -114,6 +115,14 @@
       text-align: center;
       padding: 5px;
       cursor: pointer;
+    }
+    .time-column { /* 新增：為時間欄設定固定寬度 */
+      width: 60px; /* 內容寬度，例如 "HH:MM" */
+      white-space: nowrap; /* 防止時間換行 */
+    }
+    .date-column { /* 新增：為日期欄設定固定寬度 */
+      width: 50px; /* 內容寬度，例如 "MM/DD" */
+      white-space: nowrap; /* 防止日期換行 */
     }
     .legend {
       display: flex;
@@ -164,7 +173,7 @@
       <div class="box">
         <h3 id="myTimeLabel">My Time</h3>
         <div class="legend">
-          <div class="color-box selected" style="background-color: #b3e5fc;"></div> <!-- 修改為新的淺藍色 -->
+          <div class="color-box selected" style="background-color: #e3f2fd;"></div> <!-- 修改為新的淺藍色 -->
           <div class="color-box" style="background-color: #ffffff;"></div>
         </div>
         <table id="your-table"></table>
@@ -281,21 +290,21 @@
             return dateA - dateB;
         });
 
-      let yourTableHTML = `<thead><tr><th>${timeLabel}</th>`;
+      let yourTableHTML = `<thead><tr><th class="time-column">${timeLabel}</th>`; // 為時間欄表頭添加 class
       sortedFullDates.forEach(fullDateStr => {
         const parts = fullDateStr.split('-'); // 預期格式 YYYY-M-D 或 YYYY-MM-DD
         const displayMonth = parts[1].padStart(2, '0'); // 確保月份是兩位數
         const displayDay = parts[2].padStart(2, '0');   // 確保日期是兩位數
-        yourTableHTML += `<th>${displayMonth}/${displayDay}</th>`;
+        yourTableHTML += `<th class="date-column">${displayMonth}/${displayDay}</th>`; // 為日期欄表頭添加 class
       });
       yourTableHTML += '</tr></thead><tbody>';
 
-      let groupTableHTML = `<thead><tr><th>${timeLabel}</th>`;
+      let groupTableHTML = `<thead><tr><th class="time-column">${timeLabel}</th>`; // 為時間欄表頭添加 class
       sortedFullDates.forEach(fullDateStr => {
         const parts = fullDateStr.split('-');
         const displayMonth = parts[1].padStart(2, '0');
         const displayDay = parts[2].padStart(2, '0');
-        groupTableHTML += `<th>${displayMonth}/${displayDay}</th>`;
+        groupTableHTML += `<th class="date-column">${displayMonth}/${displayDay}</th>`; // 為日期欄表頭添加 class
       });
       groupTableHTML += '</tr></thead><tbody>';
 
