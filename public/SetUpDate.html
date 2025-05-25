@@ -404,46 +404,80 @@
   function loadRecentTimetablesForUser(userId) {
     const recentList = document.getElementById("recent-list");
     const t = translations[currentLang] || translations.en;
-    
-    // 修改查詢以適應新的資料結構：查詢 schedules 節點下，metaData.creatorUid 等於當前 userId 的行程
-    const schedulesRef = firebase.database().ref('schedules') // 查詢 'schedules' 根節點
+    recentList.innerHTML = ""; // Clear previous list
+
+    let allUserSchedules = {}; // 使用物件以行程ID為鍵來自動處理重複
+
+    // Promise 1: 獲取使用者創建的行程
+    const createdSchedulesRef = firebase.database().ref('schedules')
                                 .orderByChild('metaData/creatorUid') // 根據 metaData 節點下的 creatorUid 進行排序和篩選
                                 .equalTo(userId) // 篩選出 metaData.creatorUid 等於當前登入用戶 userId 的行程
                                 .limitToLast(5); // 限制結果為最新的5條紀錄
 
-    schedulesRef.on('value', (snapshot) => {
-      recentList.innerHTML = ""; // Clear previous list
+    const fetchCreatedPromise = createdSchedulesRef.once('value').then(snapshot => {
       if (snapshot.exists()) {
-        let schedules = [];
         snapshot.forEach(childSnapshot => {
           const scheduleData = childSnapshot.val();
           if (scheduleData && scheduleData.metaData) {
-            // 儲存整個 metaData 和行程的 ID
-            schedules.push({ id: childSnapshot.key, ...scheduleData.metaData });
+            allUserSchedules[childSnapshot.key] = { id: childSnapshot.key, ...scheduleData.metaData };
           }
         });
-        // Firebase limitToLast 返回的是按 createdAt 升序的最後 N 條。
-        // 如果 createdAt 是正數時間戳 (越新越大)，我們需要在客戶端反轉以得到最新在前。
-        // 或者，如果我們在儲存時使用負的時間戳 (越新越小，例如 -Date.now())，則 limitToFirst 可以直接得到最新的。
-        schedules.sort((a, b) => b.createdAt - a.createdAt); // 確保按創建時間降序排列
-
-        schedules.forEach(schedule => {
-          const li = document.createElement("li");
-          li.textContent = schedule.name || "Untitled Schedule";
-          li.addEventListener("click", () => {
-            // 只需要 scheduleId，userId 可以從 currentUser 獲取
-            localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: schedule.id }));
-            window.location.href = 'MakeTime.html';
-          });
-          recentList.appendChild(li);
-        });
-      } else {
-        recentList.innerHTML = `<li>${t.noRecentTimetables}</li>`;
       }
-    }, (error) => {
-      console.error("Error loading recent timetables:", error);
-      recentList.innerHTML = `<li>Error loading timetables.</li>`;
     });
+
+    // Promise 2: 獲取使用者參與的行程
+    const participatedSchedulesRef = firebase.database().ref('users/' + userId + '/participatedSchedules');
+    const fetchParticipatedPromise = participatedSchedulesRef.once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        const participatedIds = snapshot.val(); // 這應該是一個類似 {scheduleId1: true, scheduleId2: true} 的物件
+        const scheduleDetailPromises = [];
+        for (const scheduleId in participatedIds) {
+          if (participatedIds[scheduleId] === true) { // 或者檢查您儲存的任何有意義的值
+            // 避免重複獲取已經作為創建行程加載過的行程
+            if (!allUserSchedules[scheduleId]) {
+              scheduleDetailPromises.push(
+                firebase.database().ref('schedules/' + scheduleId + '/metaData').once('value')
+                  .then(metaSnapshot => {
+                    if (metaSnapshot.exists()) {
+                      allUserSchedules[scheduleId] = { id: scheduleId, ...metaSnapshot.val() };
+                    }
+                  })
+              );
+            }
+          }
+        }
+        return Promise.all(scheduleDetailPromises);
+      }
+      return Promise.resolve(); // 沒有參與的行程
+    });
+
+    // 當兩個 Promise 都完成後，處理並顯示
+    Promise.all([fetchCreatedPromise, fetchParticipatedPromise])
+      .then(() => {
+        const schedulesArray = Object.values(allUserSchedules);
+        if (schedulesArray.length > 0) {
+          // 按 createdAt 降序排列所有行程 (最新的在前)
+          schedulesArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          
+          // 顯示一定數量的行程 (例如 5 個)
+          const displayLimit = 5;
+          schedulesArray.slice(0, displayLimit).forEach(schedule => {
+            const li = document.createElement("li");
+            li.textContent = schedule.name || "Untitled Schedule";
+            li.addEventListener("click", () => {
+              localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: schedule.id }));
+              window.location.href = 'MakeTime.html';
+            });
+            recentList.appendChild(li);
+          });
+        } else {
+          recentList.innerHTML = `<li>${t.noRecentTimetables}</li>`;
+        }
+      })
+      .catch(error => {
+        console.error("Error loading recent timetables:", error);
+        recentList.innerHTML = `<li>Error loading timetables. Check console.</li>`;
+      });
   }
 
   // Time select options

@@ -292,9 +292,33 @@
     }
 
     function loadDataAndGenerateUI() {
-      const scheduleInfoString = localStorage.getItem('currentScheduleInfo');
       const titleElement = document.getElementById('mainTitle');
       const descriptionElement = document.getElementById('scheduleDescription');
+
+      // 優先從 URL 參數獲取 scheduleId (處理分享連結)
+      let scheduleIdToLoad = null;
+      const urlParams = new URLSearchParams(window.location.search);
+      const scheduleIdFromUrl = urlParams.get('scheduleId');
+
+      if (scheduleIdFromUrl) {
+        scheduleIdToLoad = scheduleIdFromUrl;
+        // 將從 URL 獲取的 scheduleId 存到 localStorage，以便刷新頁面時仍能載入
+        localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: scheduleIdToLoad }));
+        // 清理 URL 中的 scheduleId，避免用戶複製帶有此參數的 URL (可選，但有助於簡潔)
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        const scheduleInfoString = localStorage.getItem('currentScheduleInfo');
+        if (scheduleInfoString) {
+          try {
+            const scheduleInfo = JSON.parse(scheduleInfoString);
+            scheduleIdToLoad = scheduleInfo.scheduleId;
+          } catch (e) {
+            console.error("Error parsing currentScheduleInfo from localStorage:", e);
+          }
+        }
+      }
+      
+      currentScheduleId = scheduleIdToLoad; // 設定全域的 currentScheduleId
 
       if (!currentUser) {
         console.warn("MakeTime.html: User not authenticated. Cannot load schedule data.");
@@ -306,13 +330,8 @@
         return;
       }
 
-      if (scheduleInfoString) {
-        try {
-          const scheduleInfo = JSON.parse(scheduleInfoString);
-          currentScheduleId = scheduleInfo.scheduleId;
-
           if (!currentScheduleId) {
-            console.error("No scheduleId found in localStorage.");
+            console.log("No scheduleId found. Using defaults or waiting for user action.");
             alert("Error: Schedule ID not found. Cannot load schedule.");
             if (titleElement) titleElement.textContent = initialTimetableName;
             if (descriptionElement) descriptionElement.textContent = initialDescription;
@@ -340,11 +359,45 @@
               // 2. 監聽參與者數據的變化 (包括當前用戶的可用時間)
               const participantsRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants');
               participantsRef.on('value', participantsSnapshot => {
-                allParticipantsData = participantsSnapshot.val() || {};
-                currentUserAvailableTimes = (allParticipantsData[currentUser.uid] && allParticipantsData[currentUser.uid].availableTimes) || {};
-                
-                applyMyTimeSelectionsToTable(); // 應用當前用戶的選擇到 "My Time" 表格
-                updateGroupAvailabilityDisplay(); // 更新 "Group Availability" 表格
+                const participantsData = participantsSnapshot.val() || {};
+                allParticipantsData = participantsData; // 更新全域變數
+
+                // 檢查當前用戶是否是參與者，如果不是 (例如透過分享連結首次加入)，則將其加入
+                if (currentUser && currentUser.uid && !participantsData[currentUser.uid]) {
+                  console.log(`User ${currentUser.uid} is not a participant for schedule ${currentScheduleId}. Adding now.`);
+                  const newParticipantRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants/' + currentUser.uid);
+                  
+                  const userProfileRef = firebase.database().ref('users/' + currentUser.uid + '/displayName');
+                  userProfileRef.once('value').then(profileSnapshot => {
+                    let userDisplayName = "";
+                    if (profileSnapshot.exists() && String(profileSnapshot.val()).trim().length > 0) {
+                        userDisplayName = String(profileSnapshot.val()).trim().substring(0,49);
+                    } else if (currentUser.displayName && currentUser.displayName.trim().length > 0) {
+                        userDisplayName = currentUser.displayName.trim().substring(0,49);
+                    } else {
+                        let emailNamePart = currentUser.email ? currentUser.email.split('@')[0].trim() : "";
+                        if (!userDisplayName || userDisplayName.length === 0) { // Check userDisplayName, not emailNamePart
+                            userDisplayName = "User_" + (currentUser.uid ? currentUser.uid.substring(0, 5) : Date.now().toString().slice(-5));
+                        }
+                        userDisplayName = userDisplayName.substring(0,49);
+                    }
+
+                    newParticipantRef.set({
+                      displayName: userDisplayName, // Ensure displayName is set
+                      availableTimes: {} // 初始為空
+                    }).then(() => {
+                      console.log(`User ${currentUser.uid} added as participant to schedule ${currentScheduleId}.`);
+                      const userParticipatedRef = firebase.database().ref('users/' + currentUser.uid + '/participatedSchedules/' + currentScheduleId);
+                      userParticipatedRef.set(true) 
+                        .then(() => console.log(`Schedule ${currentScheduleId} added to user ${currentUser.uid}'s participated list.`))
+                        .catch(error => console.error("Error adding schedule to user's participated list:", error));
+                    }).catch(error => console.error("Error adding user as participant:", error));
+                  }); // End of userProfileRef.once
+                } else if (currentUser && currentUser.uid) { // User is already a participant or was just added
+                  currentUserAvailableTimes = (participantsData[currentUser.uid] && participantsData[currentUser.uid].availableTimes) || {};
+                  applyMyTimeSelectionsToTable();
+                  updateGroupAvailabilityDisplay();
+                }
               });
 
             } else {
@@ -361,18 +414,6 @@
             if (descriptionElement) descriptionElement.textContent = initialDescription;
             generateTables();
           });
-        } catch (e) {
-          console.error("Error parsing currentScheduleInfo from localStorage:", e);
-          if (titleElement) titleElement.textContent = initialTimetableName;
-          if (descriptionElement) descriptionElement.textContent = initialDescription;
-          generateTables();
-        }
-      } else {
-        console.log("No schedule data found in localStorage from SetUpDate.html, using defaults.");
-        if (titleElement) titleElement.textContent = initialTimetableName;
-        if (descriptionElement) descriptionElement.textContent = initialDescription;
-        generateTables();
-      }
     }
 
     function generateTables() {
