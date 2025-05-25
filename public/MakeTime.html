@@ -147,6 +147,26 @@
       padding: 0 20px; /* 如果描述很長，增加一些水平內邊距 */
       word-wrap: break-word; /* 確保長描述能正確換行 */
     }
+    /* Tooltip 樣式 */
+    .tooltip {
+      position: absolute; /* 相對於 .box 定位 */
+      background-color: #333;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      z-index: 100;
+      pointer-events: none; /* 確保 tooltip 不會干擾滑鼠事件 */
+      white-space: pre-wrap; /* 允許多行顯示，配合 \n 換行 */
+      opacity: 0; /* 初始隱藏 */
+      transition: opacity 0.2s ease-in-out; /* 淡入淡出效果 */
+    }
+    .tooltip-visible {
+      opacity: 1;
+    }
+    .box { /* 確保 .box 有 position: relative 以便 tooltip 定位 */
+        position: relative;
+    }
   </style>
 </head>
 <body>
@@ -188,6 +208,7 @@
           <div class="color-box" style="background-color: #1e88e5;"></div> <!-- 深藍色 -->
         </div>
         <table id="group-table"></table>
+        <div id="group-tooltip" class="tooltip"></div> <!-- 新增 tooltip 元素 -->
       </div>
     </div>
   </div>
@@ -541,12 +562,14 @@
         const date = cell.dataset.date;
         const time = cell.dataset.time;
         let selectedCount = 0;
+        let participantNames = []; // 用於儲存選擇此時間格的參與者名稱
 
         for (const uid in allParticipantsData) {
           if (allParticipantsData[uid].availableTimes &&
               allParticipantsData[uid].availableTimes[date] &&
               allParticipantsData[uid].availableTimes[date][time]) {
             selectedCount++;
+            participantNames.push(allParticipantsData[uid].displayName || "Unknown User"); // 添加參與者名稱
           }
         }
         // 根據選中的參與者數量來決定顏色
@@ -554,6 +577,7 @@
         // 確保 selectedCount 不會超出 groupColors 陣列的範圍
         const colorIndex = Math.min(selectedCount, groupColors.length - 1);
         cell.style.backgroundColor = groupColors[colorIndex];
+        cell.dataset.participants = participantNames.join("\n"); // 將參與者名稱列表存儲到 data 屬性，用換行符分隔
       });
     }
 
@@ -646,6 +670,53 @@
       }
     }
 
+    // Tooltip 相關函數
+    const groupTooltipElement = document.getElementById('group-tooltip');
+
+    function showGroupTooltip(event) {
+      const cell = event.target.closest('td');
+      // 確保事件目標是 group-table 內的資料儲存格
+      if (!cell || !cell.dataset.date || cell.closest('table')?.id !== 'group-table') {
+        hideGroupTooltip(); // 如果不是，則隱藏 tooltip
+        return;
+      }
+
+      const participantsText = cell.dataset.participants;
+      if (participantsText && participantsText.trim() !== "") {
+        groupTooltipElement.textContent = participantsText;
+        groupTooltipElement.classList.add('tooltip-visible'); // 顯示 tooltip
+        
+        // 計算 tooltip 位置
+        const boxElement = cell.closest('.box'); // tooltip 相對於 .box 定位
+        const boxRect = boxElement.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+
+        // 相對於 .box 的位置
+        // 預設在儲存格下方，並稍微偏右以避免遮擋滑鼠
+        let top = cellRect.bottom - boxRect.top + 5; 
+        let left = cellRect.left - boxRect.left + 5;
+
+        // 邊界檢查，防止 tooltip 超出 .box 的可視範圍
+        if (left + groupTooltipElement.offsetWidth > boxElement.clientWidth) {
+          left = boxElement.clientWidth - groupTooltipElement.offsetWidth - 5;
+        }
+        if (top + groupTooltipElement.offsetHeight > boxElement.clientHeight) { // 如果下方空間不足
+          top = cellRect.top - boxRect.top - groupTooltipElement.offsetHeight - 5; // 嘗試顯示在儲存格上方
+        }
+        if (left < 0) left = 5; // 防止左邊超出
+        if (top < 0 && (cellRect.top - boxRect.top - groupTooltipElement.offsetHeight - 5 < 0) ) top = cellRect.bottom - boxRect.top + 5; // 如果上方也超出，還是放下方
+
+        groupTooltipElement.style.left = `${left}px`;
+        groupTooltipElement.style.top = `${top}px`;
+      } else {
+        hideGroupTooltip(); // 如果沒有參與者，則隱藏 tooltip
+      }
+    }
+
+    function hideGroupTooltip() {
+      groupTooltipElement.classList.remove('tooltip-visible'); // 隱藏 tooltip
+    }
+
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         currentUser = user;
@@ -659,6 +730,13 @@
         window.location.href = 'index.html';
       }
     });
+
+    // 為 Group Availability 表格添加事件監聽器 (使用事件委派)
+    const groupTableElement = document.getElementById('group-table');
+    if (groupTableElement) {
+        groupTableElement.addEventListener('mouseover', showGroupTooltip);
+        groupTableElement.addEventListener('mouseout', hideGroupTooltip);
+    }
   </script>
 </body>
 </html>
