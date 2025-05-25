@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TimePick</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&display=swap" rel="stylesheet">
+  <!-- Firebase App (必需) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <!-- 如果你要用 Firebase Authentication、Database、Analytics...就加上對應模組 -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+  <!-- realtime database  -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -147,6 +154,23 @@
   </div>
 
   <button class="how-it-works" onclick="howItWorks()">How It Works</button>
+
+  <!-- ✅ 初始化 Firebase -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDB4VGyvOTvwkBSKzgp_HSeKSWW0NMAOmA",
+      authDomain: "timepick-d4a6e.firebaseapp.com",
+      databaseURL: "https://timepick-d4a6e-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "timepick-d4a6e",
+      storageBucket: "timepick-d4a6e.appspot.com",
+      messagingSenderId: "348026209415",
+      appId: "1:348026209415:web:c5959134acfa9dec876422",
+      measurementId: "G-HRG2QH1YHW"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+  </script>
 
   <script>
     function createSchedule() {
