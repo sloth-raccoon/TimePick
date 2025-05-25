@@ -17,6 +17,20 @@
       align-items: center; /* Center content horizontally */
       min-height: 100vh;
     }
+    .language-switcher-maketime { /* New class for MakeTime.html language switcher */
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+    .language-switcher-maketime select {
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background-color: #ffffff;
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+    }
     .main-content-area { /* Renamed .main to avoid conflict with a potential main semantic tag, and for clarity */
       width: 1000px;
       background: white;
@@ -171,6 +185,14 @@
 </head>
 <body>
   <h1 class="site-title-main">TIMEPICK</h1>
+  
+  <!-- Language Switcher for MakeTime.html -->
+  <div class="language-switcher-maketime">
+    <select class="button" onchange="changeLanguage(this.value)">
+      <option value="en">EN</option>
+      <option value="zh-TW">繁體中文</option>
+    </select>
+  </div>
 
   <div class="main-content-area">
     <div class="header">
@@ -178,12 +200,7 @@
         <button id="btnNew" class="button" onclick="handleNewSchedule()">New</button>
         <button id="btnShare" class="button" onclick="handleShareSchedule()">Share</button>
       </div>
-      <div class="right-buttons">
-        <select class="button" onchange="changeLanguage(this.value)">
-          <option value="en">EN</option>
-          <option value="zh-TW">繁體中文</option>
-        </select>
-      </div>
+      <!-- Removed language switcher from here -->
     </div>
 
     <h1 id="mainTitle">TIMETABLE</h1>
