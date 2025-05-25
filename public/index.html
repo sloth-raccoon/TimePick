@@ -115,15 +115,20 @@
     }
 
     .how-it-works {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
       background: none;
       border: none;
       font-size: 16px;
       text-decoration: underline;
       color: #007BFF;
       cursor: pointer;
+      margin-top: 20px; /* 新增：與上方按鈕的間距 */
+    }
+
+    .error-message { /* 新增：錯誤訊息樣式 */
+      color: #dc2626; /* 紅色 */
+      font-size: 14px;
+      margin-top: 15px;
+      min-height: 1.2em; /* 預留空間，避免內容跳動 */
     }
   </style>
 </head>
@@ -140,8 +145,8 @@
 
   <div class="container">
     <div class="input-space">
-      <h2 id="email-label">Email</h2>
-      <input type="email" id="email" placeholder="Your Email" required />
+      <h2 id="name-label">Name</h2> <!-- 修改標籤文字 -->
+      <input type="text" id="name" placeholder="Your Name" required /> <!-- 修改 ID, type 和 placeholder -->
     </div>
 
     <div class="input-space">
@@ -152,12 +157,14 @@
     <button class="create-schedule-btn" onclick="loginUser()" id="login-btn">
       Login
     </button>
-    <button class="create-schedule-btn" onclick="registerUser()" id="register-btn" style="margin-top: 10px; background-color: #60a5fa;">
+    <button class="create-schedule-btn" onclick="registerUser()" id="register-btn" style="margin-top: 10px;">
       Register / Create Schedule
     </button>
+    <p id="auth-error-message" class="error-message"></p> <!-- 新增：用於顯示錯誤訊息的元素 -->
+    <!-- 將 "How it works?" 移到這裡 -->
+    <span class="how-it-works" onclick="howItWorks()" id="how-it-works-link">How it works?</span>
   </div>
 
-  <button class="how-it-works" onclick="howItWorks()">How It Works</button>
 
   <!-- ✅ 初始化 Firebase -->
   <script>
@@ -186,6 +193,7 @@
 
     function handleAuthError(error, lang) {
       const t = translations[lang];
+      const errorMessageElement = document.getElementById('auth-error-message');
       var errorCode = error.code;
       var errorMessage = error.message;
       console.error("Authentication error:", errorCode, errorMessage);
@@ -200,78 +208,99 @@
       } else if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
         displayMessage = t.alertLoginFailed;
       }
-      alert(displayMessage);
+      if (errorMessageElement) {
+        errorMessageElement.textContent = displayMessage;
+      } else {
+        alert(displayMessage); // Fallback if element not found
+      }
     }
 
     function loginUser() {
-      const email = document.getElementById('email').value.trim();
+      const name = document.getElementById('name').value.trim(); // 從 name 欄位獲取
       const password = document.getElementById('password').value.trim();
       const currentLang = document.getElementById("language-select").value || "en";
       const t = translations[currentLang];
+      const errorMessageElement = document.getElementById('auth-error-message');
 
-      if (!email || !password) {
-        alert(t.alertEmptyFields);
+      if (errorMessageElement) errorMessageElement.textContent = ""; // 清除先前的錯誤訊息
+
+      if (!name || !password) { // 檢查 name 和 password
+        if (errorMessageElement) errorMessageElement.textContent = t.alertEmptyFields;
+        else alert(t.alertEmptyFields);
         return;
       }
+      
+      // 將 name 轉換為 Firebase Auth 可接受的 email 格式
+      const emailForFirebase = name + "@example.com";
 
-      firebase.auth().signInWithEmailAndPassword(email, password)
+      firebase.auth().signInWithEmailAndPassword(emailForFirebase, password)
         .then(handleAuthSuccess)
         .catch(error => handleAuthError(error, currentLang));
     }
 
     function registerUser() {
-      const email = document.getElementById('email').value.trim();
+      const name = document.getElementById('name').value.trim(); // 從 name 欄位獲取
       const password = document.getElementById('password').value.trim();
       const currentLang = document.getElementById("language-select").value || "en";
       const t = translations[currentLang];
+      const errorMessageElement = document.getElementById('auth-error-message');
 
-      if (!email || !password) {
-        alert(t.alertEmptyFields);
+      if (errorMessageElement) errorMessageElement.textContent = ""; // 清除先前的錯誤訊息
+
+      if (!name || !password) { // 檢查 name 和 password
+        if (errorMessageElement) errorMessageElement.textContent = t.alertEmptyFields;
+        else alert(t.alertEmptyFields);
         return;
       }
 
+      // 將 name 轉換為 Firebase Auth 可接受的 email 格式
+      const emailForFirebase = name + "@example.com";
+
       // 這裡我們假設註冊後也直接建立行程，所以直接跳轉
       // 如果密碼太弱，Firebase 會拒絕
-      firebase.auth().createUserWithEmailAndPassword(email, password)
+      firebase.auth().createUserWithEmailAndPassword(emailForFirebase, password)
         .then(handleAuthSuccess)
         .catch(error => handleAuthError(error, currentLang));
     }
 
     function howItWorks() {
       const currentLang = document.getElementById("language-select").value || "en";
-      alert(translations[currentLang].howItWorksAlert);
+      // 如果錯誤訊息元素存在，先清空它
+      const errorMessageElement = document.getElementById('auth-error-message');
+      if (errorMessageElement) errorMessageElement.textContent = "";
+      alert(translations[currentLang].howItWorksAlert); // 顯示操作說明
     }
 
     const translations = {
       en: {
-        emailLabel: "Email",
+        nameLabel: "Name", // 修改
         passwordLabel: "Password",
-        emailPlaceholder: "Your Email",
+        namePlaceholder: "Your Name", // 修改
         passwordPlaceholder: "Your Password",
         loginButton: "Login",
-        registerButton: "Register / Create Schedule",
-        howItWorks: "How It Works",
+        registerButton: "Don't have an account? Register here",
+        howItWorks: "How it works?", // 更新文字以包含問號
         howItWorksAlert: "This app helps you pick times easily!",
-        alertEmailInUse: "This email address is already in use by another account.",
+        alertEmailInUse: "This name (or its corresponding email representation) is already in use.", // 調整提示
         alertInvalidEmail: "The email address is not valid.",
         alertWeakPassword: "The password is too weak. It should be at least 6 characters.",
         alertLoginFailed: "Login failed. Please check your email and password.",
-        alertEmptyFields: "Please enter both email and password."
+        alertEmptyFields: "Please enter both name and password." // 調整提示
       },
       zh: {
-        emailLabel: "電子郵件",
+        nameLabel: "名稱", // 修改
         passwordLabel: "密碼",
-        emailPlaceholder: "請輸入電子郵件",
+        namePlaceholder: "請輸入名稱", // 修改
         passwordPlaceholder: "請輸入密碼",
         loginButton: "登入",
         registerButton: "註冊 / 建立行程",
-        howItWorks: "如何使用",
+        howItWorks: "如何使用？", // 更新文字以包含問號
         howItWorksAlert: "這個應用程式可以幫助您輕鬆選擇時間！",
-        alertEmailInUse: "這個電子郵件地址已被其他帳戶使用。",
+        alertEmailInUse: "此名稱（或其對應的電子郵件格式）已被使用。", // 調整提示
         alertInvalidEmail: "電子郵件地址格式無效。",
         alertWeakPassword: "密碼強度不足，至少需要6個字元。",
         alertLoginFailed: "登入失敗，請檢查您的電子郵件和密碼。",
-        alertEmptyFields: "請輸入電子郵件和密碼。"
+        alertEmptyFields: "請輸入名稱和密碼。" // 調整提示
       }
     };
 
@@ -279,13 +308,13 @@
 
     function updateLanguage(lang) {
       const t = translations[lang];
-      document.getElementById("email-label").textContent = t.emailLabel;
+      document.getElementById("name-label").textContent = t.nameLabel; // 修改
       document.getElementById("password-label").textContent = t.passwordLabel;
-      document.getElementById("email").placeholder = t.emailPlaceholder;
+      document.getElementById("name").placeholder = t.namePlaceholder; // 修改
       document.getElementById("password").placeholder = t.passwordPlaceholder;
       document.getElementById("login-btn").textContent = t.loginButton;
       document.getElementById("register-btn").textContent = t.registerButton;
-      document.querySelector(".how-it-works").textContent = t.howItWorks;
+      document.getElementById("how-it-works-link").textContent = t.howItWorks; // 使用 ID 更新文字
     }
 
     select.addEventListener("change", () => {
