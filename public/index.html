@@ -28,6 +28,10 @@
       position: relative;
       padding-top: 40px;
     }
+    /* Apply border-box sizing to all elements for easier layout management */
+    * {
+      box-sizing: border-box;
+    }
 
     .language-switcher {
       position: absolute;
@@ -54,17 +58,18 @@
     }
 
     .container {
-      width: 380px;
+      width: 90%; /* 改為百分比寬度 */
+      max-width: 420px; /* 設定最大寬度，避免在大螢幕上過寬 */
+      min-width: 280px; /* 設定一個最小寬度，防止過度壓縮 */
       background: white;
       border-radius: 20px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      padding: 30px 25px;
+      padding: 25px 20px; /* 稍微調整內邊距 */
       margin-top: 30px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 300px;
-    }
+      justify-content: center; /* 讓內容在容器內垂直居中 */    }
 
     h2 {
       align-self: flex-start;
@@ -77,7 +82,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      margin-bottom: 25px;
+      margin-bottom: 20px; /* 減少輸入組之間的間距 */
       width: 100%;
     }
 
@@ -87,8 +92,7 @@
       border-radius: 10px;
       border: 1px solid #cbd5e1;
       background-color: #f1f5f9;
-      width: 100%;
-      max-width: 360px;
+      width: 100%; /* 配合 box-sizing: border-box */
       color: #334155;
     }
 
@@ -97,8 +101,8 @@
     }
 
     button.create-schedule-btn {
-      width: 100%;
-      max-width: 300px;
+      width: 100%; /* 按鈕寬度充滿可用空間 */
+      max-width: 320px; /* 按鈕最大寬度，可以根據內容調整 */
       background-color: #3b82f6;
       color: white;
       border: none;
@@ -106,7 +110,7 @@
       padding: 14px;
       font-size: 16px;
       cursor: pointer;
-      transition: background-color 0.3s ease;
+      transition: background-color 0.2s ease;
       margin-top: 10px;
     }
 
@@ -121,14 +125,15 @@
       text-decoration: underline;
       color: #007BFF;
       cursor: pointer;
-      margin-top: 20px; /* 新增：與上方按鈕的間距 */
+      margin-top: 8px; /* 進一步減少與上方元素的間距 */
     }
 
     .error-message { /* 新增：錯誤訊息樣式 */
       color: #dc2626; /* 紅色 */
       font-size: 14px;
-      margin-top: 15px;
-      min-height: 1.2em; /* 預留空間，避免內容跳動 */
+      margin-top: 12px; /* 調整與上方按鈕的間距 */
+      min-height: 1.1em; /* 預留空間，避免內容跳動 */
+      text-align: center; /* 錯誤訊息居中 */
     }
   </style>
 </head>
@@ -161,8 +166,8 @@
       Register / Create Schedule
     </button>
     <p id="auth-error-message" class="error-message"></p> <!-- 新增：用於顯示錯誤訊息的元素 -->
-    <!-- 將 "How it works?" 移到這裡 -->
     <span class="how-it-works" onclick="howItWorks()" id="how-it-works-link">How it works?</span>
+    <!-- "How it works?" 現在在 container 內部 -->
   </div>
 
 
