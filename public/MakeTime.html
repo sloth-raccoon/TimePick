@@ -227,6 +227,36 @@
     firebase.initializeApp(firebaseConfig);
 
 
+    // Define translations for MakeTime.html
+    const translations = {
+      en: {
+        myTimeLabel: "My Time",
+        groupLabel: "Group Availability",
+        btnNew: "New",
+        btnShare: "Share",
+        mainTitle: "TIMETABLE", // Default title if not loaded
+        time: "Time",
+        alertTimePeriodUndefined: "Time period undefined (check start/end times and interval).",
+        alertNoDatesSelected: "No dates selected.",
+        alertLinkCopied: "Share link copied to clipboard!",
+        alertCopyFailed: "Failed to copy link. Please copy it manually.",
+        alertNoScheduleToShare: "No schedule is currently loaded to share."
+      },
+      'zh-TW': { // Assuming 'zh-TW' is what you use in the select, adjust if it's 'zh'
+        myTimeLabel: "我的時間",
+        groupLabel: "團體時間",
+        btnNew: "新增",
+        btnShare: "分享",
+        mainTitle: "時間表", // Default title if not loaded
+        time: "時間",
+        alertTimePeriodUndefined: "未定義時間段 (請檢查開始/結束時間和間隔)。",
+        alertNoDatesSelected: "未選擇日期。",
+        alertLinkCopied: "分享連結已複製到剪貼簿！",
+        alertCopyFailed: "複製連結失敗，請手動複製。",
+        alertNoScheduleToShare: "目前沒有可分享的行程。"
+      }
+    };
+
     function handleNewSchedule() {
       // 清除 localStorage 中的 currentScheduleInfo，這樣 SetUpDate.html 就會是全新狀態
       localStorage.removeItem('currentScheduleInfo');
@@ -235,13 +265,13 @@
 
     function handleShareSchedule() {
       if (!currentScheduleId) {
-        const currentTranslation = translations[window.currentLang || 'en'] || translations['en'];
+        const currentTranslation = translations[window.currentLang || 'en'] || translations.en;
         alert(currentTranslation.alertNoScheduleToShare);
         return;
       }
 
       const shareLink = `${window.location.origin}${window.location.pathname}?scheduleId=${currentScheduleId}`;
-      const currentTranslation = translations[window.currentLang || 'en'] || translations['en'];
+      const currentTranslation = translations[window.currentLang || 'en'] || translations.en;
       console.log("Generated share link:", shareLink); // 用於調試
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -418,7 +448,7 @@
           yourTableHTML += `<tr><td>${time}</td>`;
           groupTableHTML += `<tr><td>${time}</td>`;
           sortedFullDates.forEach(dateStr => { // 使用完整的日期字串作為 data 屬性
-            yourTableHTML += `<td onclick='toggleMyTimeColor(this)' data-date='${dateStr}' data-time='${time}'></td>`;
+            yourTableHTML += `<td data-date='${dateStr}' data-time='${time}'></td>`; // 移除 onclick
             groupTableHTML += `<td data-date='${dateStr}' data-time='${time}'></td>`; // Group table is now read-only
           });
           yourTableHTML += '</tr>';
@@ -553,31 +583,10 @@
 
     function changeLanguage(lang) {
       window.currentLang = lang; // Store current language globally if needed by other functions
-      const labels = {
-        en: {
-          myTimeLabel: "My Time",
-          groupLabel: "Group Availability",
-          btnNew: "New",
-          btnShare: "Share",
-          mainTitle: "TIMETABLE",
-          time: "Time",
-          alertLinkCopied: "Share link copied to clipboard!",
-          alertCopyFailed: "Failed to copy link. Please copy it manually.",
-          alertNoScheduleToShare: "No schedule is currently loaded to share."
-        },
-        'zh-TW': {
-          myTimeLabel: "我的時間",
-          groupLabel: "團體時間",
-          btnNew: "新增",
-          btnShare: "分享",
-          mainTitle: "時間表",
-          time: "時間",
-          alertLinkCopied: "分享連結已複製到剪貼簿！",
-          alertCopyFailed: "複製連結失敗，請手動複製。",
-          alertNoScheduleToShare: "目前沒有可分享的行程。"
-        }
-      };
-      const t = labels[lang] || labels['en'];
+      // 使用在頂部定義的 translations 物件
+      const t = translations[lang] || translations.en; 
+      // 如果 lang 在 translations 中未定義，則預設為英文
+      // 如果 translations.en 也未定義 (雖然不太可能，因為我們剛定義了它)，則 t 會是 undefined，需要進一步處理
 
       document.getElementById('myTimeLabel').textContent = t.myTimeLabel;
       document.getElementById('groupLabel').textContent = t.groupLabel;
