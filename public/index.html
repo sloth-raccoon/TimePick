@@ -139,9 +139,21 @@
   <h1>TIMEPICK</h1>
 
   <div class="container">
-    <!-- 移除了用戶名和密碼輸入框 -->
-    <button class="create-schedule-btn" onclick="createSchedule()" id="create-btn">
-      Create Your First Schedule
+    <div class="input-space">
+      <h2 id="email-label">Email</h2>
+      <input type="email" id="email" placeholder="Your Email" required />
+    </div>
+
+    <div class="input-space">
+      <h2 id="password-label">Password</h2>
+      <input type="password" id="password" placeholder="Your Password" required />
+    </div>
+
+    <button class="create-schedule-btn" onclick="loginUser()" id="login-btn">
+      Login
+    </button>
+    <button class="create-schedule-btn" onclick="registerUser()" id="register-btn" style="margin-top: 10px; background-color: #60a5fa;">
+      Register / Create Schedule
     </button>
   </div>
 
@@ -165,24 +177,64 @@
   </script>
 
   <script>
-    function createSchedule() {
+    function handleAuthSuccess(userCredential) {
+      const user = userCredential.user;
+      console.log("Authentication successful for user:", user.uid);
+      // 重定向到 SetUpDate.html
+      window.location.href = 'SetUpDate.html';
+    }
+
+    function handleAuthError(error, lang) {
+      const t = translations[lang];
+      var errorCode = error.code;
+      var errorMessage = error.message;
+      console.error("Authentication error:", errorCode, errorMessage);
+
+      let displayMessage = errorMessage;
+      if (errorCode === 'auth/email-already-in-use') {
+        displayMessage = t.alertEmailInUse;
+      } else if (errorCode === 'auth/invalid-email') {
+        displayMessage = t.alertInvalidEmail;
+      } else if (errorCode === 'auth/weak-password') {
+        displayMessage = t.alertWeakPassword;
+      } else if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+        displayMessage = t.alertLoginFailed;
+      }
+      alert(displayMessage);
+    }
+
+    function loginUser() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
       const currentLang = document.getElementById("language-select").value || "en";
       const t = translations[currentLang];
 
-      // 執行 Firebase 匿名登入
-      firebase.auth().signInAnonymously()
-        .then(() => {
-          // 匿名登入成功
-          console.log("User signed in anonymously");
-          // 重定向到 SetUpDate.html
-          window.location.href = 'SetUpDate.html';
-        })
-        .catch((error) => {
-          var errorCode = error.code;
-          var errorMessage = error.message;
-          console.error("Anonymous sign-in error:", errorCode, errorMessage);
-          alert(t.alertAnonymousError + ": " + errorMessage); // 顯示翻譯後的錯誤提示
-        });
+      if (!email || !password) {
+        alert(t.alertEmptyFields);
+        return;
+      }
+
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(handleAuthSuccess)
+        .catch(error => handleAuthError(error, currentLang));
+    }
+
+    function registerUser() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const currentLang = document.getElementById("language-select").value || "en";
+      const t = translations[currentLang];
+
+      if (!email || !password) {
+        alert(t.alertEmptyFields);
+        return;
+      }
+
+      // 這裡我們假設註冊後也直接建立行程，所以直接跳轉
+      // 如果密碼太弱，Firebase 會拒絕
+      firebase.auth().createUserWithEmailAndPassword(email, password)
+        .then(handleAuthSuccess)
+        .catch(error => handleAuthError(error, currentLang));
     }
 
     function howItWorks() {
@@ -192,16 +244,34 @@
 
     const translations = {
       en: {
-        createButton: "Create Your First Schedule",
+        emailLabel: "Email",
+        passwordLabel: "Password",
+        emailPlaceholder: "Your Email",
+        passwordPlaceholder: "Your Password",
+        loginButton: "Login",
+        registerButton: "Register / Create Schedule",
         howItWorks: "How It Works",
         howItWorksAlert: "This app helps you pick times easily!",
-        alertAnonymousError: "Error signing in anonymously" // 新增匿名登入錯誤提示
+        alertEmailInUse: "This email address is already in use by another account.",
+        alertInvalidEmail: "The email address is not valid.",
+        alertWeakPassword: "The password is too weak. It should be at least 6 characters.",
+        alertLoginFailed: "Login failed. Please check your email and password.",
+        alertEmptyFields: "Please enter both email and password."
       },
       zh: {
-        createButton: "建立您的第一個行程",
+        emailLabel: "電子郵件",
+        passwordLabel: "密碼",
+        emailPlaceholder: "請輸入電子郵件",
+        passwordPlaceholder: "請輸入密碼",
+        loginButton: "登入",
+        registerButton: "註冊 / 建立行程",
         howItWorks: "如何使用",
         howItWorksAlert: "這個應用程式可以幫助您輕鬆選擇時間！",
-        alertAnonymousError: "匿名登入時發生錯誤" // 新增匿名登入錯誤提示
+        alertEmailInUse: "這個電子郵件地址已被其他帳戶使用。",
+        alertInvalidEmail: "電子郵件地址格式無效。",
+        alertWeakPassword: "密碼強度不足，至少需要6個字元。",
+        alertLoginFailed: "登入失敗，請檢查您的電子郵件和密碼。",
+        alertEmptyFields: "請輸入電子郵件和密碼。"
       }
     };
 
@@ -209,7 +279,12 @@
 
     function updateLanguage(lang) {
       const t = translations[lang];
-      document.getElementById("create-btn").textContent = t.createButton;
+      document.getElementById("email-label").textContent = t.emailLabel;
+      document.getElementById("password-label").textContent = t.passwordLabel;
+      document.getElementById("email").placeholder = t.emailPlaceholder;
+      document.getElementById("password").placeholder = t.passwordPlaceholder;
+      document.getElementById("login-btn").textContent = t.loginButton;
+      document.getElementById("register-btn").textContent = t.registerButton;
       document.querySelector(".how-it-works").textContent = t.howItWorks;
     }
 
@@ -217,7 +292,10 @@
       updateLanguage(select.value);
     });
 
-    updateLanguage("en");
+    // Initialize with default language or stored preference
+    // For simplicity, defaulting to 'en'. You could store user's lang choice in localStorage.
+    const initialLang = select.value || "en";
+    updateLanguage(initialLang);
   </script>
 </body>
 </html>
