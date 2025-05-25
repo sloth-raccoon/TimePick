@@ -192,6 +192,13 @@
     </div>
   </div>
 
+  <!-- Firebase App (必需) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <!-- Firebase Authentication -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <!-- Firebase Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
   <script>
     // 用於存儲來自 SetUpDate.html 的數據或預設值的全域變數
     let initialTimetableName = "TIMETABLE"; // 預設時間表名稱
@@ -199,50 +206,108 @@
     let initialEndHour = 17;   // 預設結束小時 (不包含)
     let initialInterval = 30;  // 預設時間間隔 (分鐘)
     let initialSelectedDates = []; // 存儲從 SetUpDate.html 選擇的日期
-
     let initialDescription = ""; // 存儲描述供將來使用
 
-    function loadDataFromPreviousPage() {
-      const savedDataString = localStorage.getItem('setUpDate_data');
-      if (savedDataString) {
+    let currentUser = null;
+    let currentScheduleId = null;
+    let currentUserAvailableTimes = {}; // 用於儲存當前用戶從 Firebase 加載的可用時間
+    let allParticipantsData = {}; // 用於儲存所有參與者的數據以計算組可用性
+
+    // Firebase Configuration (從 index.html 複製過來，確保一致)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDB4VGyvOTvwkBSKzgp_HSeKSWW0NMAOmA",
+      authDomain: "timepick-d4a6e.firebaseapp.com",
+      databaseURL: "https://timepick-d4a6e-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "timepick-d4a6e",
+      storageBucket: "timepick-d4a6e.appspot.com",
+      messagingSenderId: "348026209415",
+      appId: "1:348026209415:web:c5959134acfa9dec876422",
+      measurementId: "G-HRG2QH1YHW"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+
+    function loadDataAndGenerateUI() {
+      const scheduleInfoString = localStorage.getItem('currentScheduleInfo');
+      const titleElement = document.getElementById('mainTitle');
+      const descriptionElement = document.getElementById('scheduleDescription');
+
+      if (!currentUser) {
+        console.warn("MakeTime.html: User not authenticated. Cannot load schedule data.");
+        // 可以選擇跳轉回登入頁面
+        // window.location.href = 'index.html';
+        if (titleElement) titleElement.textContent = initialTimetableName;
+        if (descriptionElement) descriptionElement.textContent = initialDescription;
+        generateTables(); // 使用預設值生成表格結構
+        return;
+      }
+
+      if (scheduleInfoString) {
         try {
-          const scheduleData = JSON.parse(savedDataString);
-          console.log("Loaded data from SetUpDate.html:", scheduleData);
+          const scheduleInfo = JSON.parse(scheduleInfoString);
+          currentScheduleId = scheduleInfo.scheduleId;
 
-          initialTimetableName = scheduleData.name || initialTimetableName;
-          initialDescription = scheduleData.description || "";
-
-          if (scheduleData.fromTime) {
-            initialStartHour = parseInt(scheduleData.fromTime.split(':')[0], 10);
-          }
-          if (scheduleData.toTime) {
-            initialEndHour = parseInt(scheduleData.toTime.split(':')[0], 10);
-          }
-          if (scheduleData.timeInterval) {
-            initialInterval = parseInt(scheduleData.timeInterval, 10);
-          }
-          if (scheduleData.dates && Array.isArray(scheduleData.dates)) {
-            initialSelectedDates = scheduleData.dates;
+          if (!currentScheduleId) {
+            console.error("No scheduleId found in localStorage.");
+            alert("Error: Schedule ID not found. Cannot load schedule.");
+            if (titleElement) titleElement.textContent = initialTimetableName;
+            if (descriptionElement) descriptionElement.textContent = initialDescription;
+            generateTables();
+            return;
           }
 
-          // 可選：如果這是一次性傳輸，並且不希望刷新頁面時重新加載，則清除該項目
-          // localStorage.removeItem('setUpDate_data');
+          // 1. 獲取行程元資料
+          const metaDataRef = firebase.database().ref('schedules/' + currentScheduleId + '/metaData');
+          metaDataRef.once('value').then(snapshot => {
+            if (snapshot.exists()) {
+              const metaData = snapshot.val();
+              initialTimetableName = metaData.name || initialTimetableName;
+              initialDescription = metaData.description || "";
+              if (metaData.fromTime) initialStartHour = parseInt(metaData.fromTime.split(':')[0], 10);
+              if (metaData.toTime) initialEndHour = parseInt(metaData.toTime.split(':')[0], 10);
+              if (metaData.timeInterval) initialInterval = parseInt(metaData.timeInterval, 10);
+              if (metaData.dates && Array.isArray(metaData.dates)) initialSelectedDates = metaData.dates;
 
+              if (titleElement) titleElement.textContent = initialTimetableName;
+              if (descriptionElement) descriptionElement.textContent = initialDescription;
+              
+              generateTables(); // 先生成表格結構
+
+              // 2. 監聽參與者數據的變化 (包括當前用戶的可用時間)
+              const participantsRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants');
+              participantsRef.on('value', participantsSnapshot => {
+                allParticipantsData = participantsSnapshot.val() || {};
+                currentUserAvailableTimes = (allParticipantsData[currentUser.uid] && allParticipantsData[currentUser.uid].availableTimes) || {};
+                
+                applyMyTimeSelectionsToTable(); // 應用當前用戶的選擇到 "My Time" 表格
+                updateGroupAvailabilityDisplay(); // 更新 "Group Availability" 表格
+              });
+
+            } else {
+              console.error("Schedule metaData not found in Firebase for ID:", currentScheduleId);
+              alert("Error: Schedule metaData not found.");
+              if (titleElement) titleElement.textContent = initialTimetableName;
+              if (descriptionElement) descriptionElement.textContent = initialDescription;
+              generateTables();
+            }
+          }).catch(error => {
+            console.error("Error fetching schedule metaData from Firebase:", error);
+            alert("Error loading schedule metaData.");
+            if (titleElement) titleElement.textContent = initialTimetableName;
+            if (descriptionElement) descriptionElement.textContent = initialDescription;
+            generateTables();
+          });
         } catch (e) {
-          console.error("Error parsing schedule data from localStorage:", e);
-          // 回退到已設定的預設值
+          console.error("Error parsing currentScheduleInfo from localStorage:", e);
+          if (titleElement) titleElement.textContent = initialTimetableName;
+          if (descriptionElement) descriptionElement.textContent = initialDescription;
+          generateTables();
         }
       } else {
         console.log("No schedule data found in localStorage from SetUpDate.html, using defaults.");
-      }
-      // 加載或使用預設值後更新 DOM 元素
-      if (document.getElementById('mainTitle')) {
-        document.getElementById('mainTitle').textContent = initialTimetableName;
-      }
-      // 更新描述的 DOM 元素
-      const descriptionElement = document.getElementById('scheduleDescription');
-      if (descriptionElement) {
-        descriptionElement.textContent = initialDescription;
+        if (titleElement) titleElement.textContent = initialTimetableName;
+        if (descriptionElement) descriptionElement.textContent = initialDescription;
+        generateTables();
       }
     }
 
@@ -319,7 +384,7 @@
           groupTableHTML += `<tr><td>${time}</td>`;
           sortedFullDates.forEach(dateStr => { // 使用完整的日期字串作為 data 屬性
             yourTableHTML += `<td onclick='toggleMyTimeColor(this)' data-date='${dateStr}' data-time='${time}'></td>`;
-            groupTableHTML += `<td onclick='cycleGroupColor(this)' data-date='${dateStr}' data-time='${time}'></td>`;
+            groupTableHTML += `<td data-date='${dateStr}' data-time='${time}'></td>`; // Group table is now read-only
           });
           yourTableHTML += '</tr>';
           groupTableHTML += '</tr>';
@@ -330,39 +395,87 @@
 
       document.getElementById('your-table').innerHTML = yourTableHTML;
       document.getElementById('group-table').innerHTML = groupTableHTML;
-      
-    }
 
-    const myTimeColors = ['#ffffff', '#e3f2fd']; // 更新選取顏色為 e3f2fd
-
-    function toggleMyTimeColor(cell) {
-      const current = rgbToHex(cell.style.backgroundColor || '#ffffff');
-      const index = myTimeColors.indexOf(current);
-      const nextColor = myTimeColors[(index + 1) % myTimeColors.length];
-      cell.style.backgroundColor = nextColor;
-
-      // 同步到 Group Availability 表格
-      const date = cell.dataset.date;
-      const time = cell.dataset.time;
-      const groupCellSelector = `#group-table td[data-date="${date}"][data-time="${time}"]`;
-      const groupCell = document.querySelector(groupCellSelector);
-
-      if (groupCell) {
-        if (nextColor === myTimeColors[1]) { // 如果 My Time 被選中
-          groupCell.style.backgroundColor = groupColors[1]; // Group Time 顯示第一級選中
-        } else { // 如果 My Time 被取消選中
-          groupCell.style.backgroundColor = groupColors[0]; // Group Time 恢復成未選中
-        }
+      // 為 "My Time" 表格附加拖曳選取事件監聽器 (如果尚未附加)
+      const myTimeTableElement = document.getElementById('your-table');
+      if (myTimeTableElement && !myTimeTableElement.hasAttribute('data-event-listeners-attached')) {
+        myTimeTableElement.addEventListener('mousedown', handleMyTimeMouseDown);
+        // Add mousemove and mouseup to document to handle dragging outside table
+        document.addEventListener('mousemove', handleMyTimeMouseMove);
+        document.addEventListener('mouseup', handleMyTimeMouseUp);
+        myTimeTableElement.setAttribute('data-event-listeners-attached', 'true');
       }
     }
 
-    const groupColors = ['#ffffff', '#e3f2fd', '#90caf9', '#42a5f5', '#1e88e5']; // 更新為藍色系
+    function applyMyTimeSelectionsToTable() {
+      if (!currentUser || !document.getElementById('your-table')) return;
 
-    function cycleGroupColor(cell) {
-      const current = rgbToHex(cell.style.backgroundColor || '#ffffff');
-      const index = groupColors.indexOf(current);
-      const nextColor = groupColors[(index + 1) % groupColors.length];
-      cell.style.backgroundColor = nextColor;
+      const cells = document.querySelectorAll('#your-table td[data-date][data-time]');
+      cells.forEach(cell => {
+        const date = cell.dataset.date;
+        const time = cell.dataset.time;
+        if (currentUserAvailableTimes && currentUserAvailableTimes[date] && currentUserAvailableTimes[date][time]) {
+          cell.style.backgroundColor = myTimeColors[1]; // Selected color
+        } else {
+          cell.style.backgroundColor = myTimeColors[0]; // Default color
+        }
+      });
+    }
+
+    function updateGroupAvailabilityDisplay() {
+      if (!document.getElementById('group-table') || Object.keys(allParticipantsData).length === 0) {
+        // 如果沒有參與者數據或表格不存在，則可能將所有格子設為預設顏色
+        const groupCells = document.querySelectorAll('#group-table td[data-date][data-time]');
+        groupCells.forEach(cell => cell.style.backgroundColor = groupColors[0]);
+        return;
+      }
+
+      const groupCells = document.querySelectorAll('#group-table td[data-date][data-time]');
+      groupCells.forEach(cell => {
+        const date = cell.dataset.date;
+        const time = cell.dataset.time;
+        let selectedCount = 0;
+
+        for (const uid in allParticipantsData) {
+          if (allParticipantsData[uid].availableTimes &&
+              allParticipantsData[uid].availableTimes[date] &&
+              allParticipantsData[uid].availableTimes[date][time]) {
+            selectedCount++;
+          }
+        }
+        // 根據選中的參與者數量來決定顏色
+        // groupColors[0] 是未選中，groupColors[1] 是一個參與者，依此類推
+        // 確保 selectedCount 不會超出 groupColors 陣列的範圍
+        const colorIndex = Math.min(selectedCount, groupColors.length - 1);
+        cell.style.backgroundColor = groupColors[colorIndex];
+      });
+    }
+
+
+    const myTimeColors = ['#ffffff', '#e3f2fd']; // [未選取, 已選取]
+    const groupColors = ['#ffffff', '#e3f2fd', '#b3e5fc', '#90caf9', '#42a5f5', '#1e88e5']; // 調整顏色梯度
+
+    // 全域變數用於 "My Time" 表格的拖曳選取
+    let isDragSelectingForMyTime = false;
+    let myTimeDragTargetStateIsSelected = false; // true for selecting, false for deselecting
+    let lastHoveredMyTimeCell = null;
+
+    function applyMyTimeCellState(cell, targetStateIsSelected) {
+      if (!cell || cell.tagName !== 'TD' || !cell.dataset.date || !currentUser || !currentScheduleId) {
+        return;
+      }
+      cell.style.backgroundColor = targetStateIsSelected ? myTimeColors[1] : myTimeColors[0];
+
+      // 更新 Firebase
+      const date = cell.dataset.date;
+      const time = cell.dataset.time;
+      const timeSlotRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants/' + currentUser.uid + '/availableTimes/' + date + '/' + time);
+      
+      if (targetStateIsSelected) {
+        timeSlotRef.set(true).catch(error => console.error("Firebase set error:", error));
+      } else {
+        timeSlotRef.remove().catch(error => console.error("Firebase remove error:", error));
+      }
     }
 
     function rgbToHex(rgb) {
@@ -371,7 +484,39 @@
       return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
     }
 
+    function handleMyTimeMouseDown(event) {
+      const cell = event.target.closest('td');
+      if (!cell || !cell.dataset.date || cell.closest('table')?.id !== 'your-table' || !currentUser) {
+        return;
+      }
+      event.preventDefault();
+      isDragSelectingForMyTime = true;
+      const currentColor = rgbToHex(cell.style.backgroundColor || myTimeColors[0]);
+      myTimeDragTargetStateIsSelected = (currentColor === myTimeColors[0]); // If white, target is to select (true)
+      applyMyTimeCellState(cell, myTimeDragTargetStateIsSelected);
+      lastHoveredMyTimeCell = cell;
+    }
+
+    function handleMyTimeMouseMove(event) {
+      if (!isDragSelectingForMyTime || !currentUser) return;
+      const cell = event.target.closest('td');
+      if (!cell || !cell.dataset.date || cell.closest('table')?.id !== 'your-table') {
+        return;
+      }
+      if (cell === lastHoveredMyTimeCell) return;
+      applyMyTimeCellState(cell, myTimeDragTargetStateIsSelected);
+      lastHoveredMyTimeCell = cell;
+    }
+
+    function handleMyTimeMouseUp() {
+      if (isDragSelectingForMyTime) {
+        isDragSelectingForMyTime = false;
+        lastHoveredMyTimeCell = null;
+      }
+    }
+
     function changeLanguage(lang) {
+      window.currentLang = lang; // Store current language globally if needed by other functions
       const labels = {
         en: {
           myTimeLabel: "My Time",
@@ -400,13 +545,29 @@
       document.getElementById('mainTitle').textContent = initialTimetableName || t.mainTitle;
 
       window.currentTimeLabel = t.time;
-      loadDataFromPreviousPage();
-      generateTables();
+      // loadDataAndGenerateUI() will be called by onAuthStateChanged or if user is already logged in
+      // If tables are already generated, re-applying language to table headers might be needed if they contain translatable text
+      // For now, assuming table headers (dates/times) are not directly translated after generation.
+      if (currentUser) { // If user is already known, reload data for new language context if necessary
+        loadDataAndGenerateUI();
+      } else { // If user not known, generate empty tables with correct time label
+        generateTables();
+      }
     }
 
-    window.onload = () => {
-      changeLanguage('en');
-    };
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        console.log("MakeTime.html: User is signed in:", currentUser.uid);
+        const langSelectElement = document.querySelector('.header select');
+        const currentSelectedLang = langSelectElement ? langSelectElement.value : 'en';
+        changeLanguage(currentSelectedLang); // This will trigger loadDataAndGenerateUI
+      } else {
+        currentUser = null;
+        console.log("MakeTime.html: User is signed out. Redirecting to homepage.");
+        window.location.href = 'index.html';
+      }
+    });
   </script>
 </body>
 </html>
