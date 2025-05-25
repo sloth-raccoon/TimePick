@@ -155,8 +155,8 @@
   <div class="main-content-area">
     <div class="header">
       <div class="left-buttons">
-        <button id="btnNew" class="button" onclick="window.location.href='SetUpDate.html'">New</button> <!-- 修改：導向到 SetUpDate.html -->
-        <button id="btnShare" class="button">Share</button>
+        <button id="btnNew" class="button" onclick="handleNewSchedule()">New</button>
+        <button id="btnShare" class="button" onclick="handleShareSchedule()">Share</button>
       </div>
       <div class="right-buttons">
         <select class="button" onchange="changeLanguage(this.value)">
@@ -227,8 +227,27 @@
     firebase.initializeApp(firebaseConfig);
 
 
+    function handleNewSchedule() {
+      // 清除 localStorage 中的 currentScheduleInfo，這樣 SetUpDate.html 就會是全新狀態
+      localStorage.removeItem('currentScheduleInfo');
+      window.location.href = 'SetUpDate.html';
+    }
+
+    function handleShareSchedule() {
+      if (!currentScheduleId) {
+        alert(translations[window.currentLang || 'en'].alertNoScheduleToShare);
+        return;
+      }
+      const shareLink = `${window.location.origin}${window.location.pathname}?scheduleId=${currentScheduleId}`;
+      navigator.clipboard.writeText(shareLink).then(() => {
+        alert(translations[window.currentLang || 'en'].alertLinkCopied + "\n" + shareLink);
+      }).catch(err => {
+        console.error('Failed to copy link: ', err);
+        alert(translations[window.currentLang || 'en'].alertCopyFailed);
+      });
+    }
+
     function loadDataAndGenerateUI() {
-      const scheduleInfoString = localStorage.getItem('currentScheduleInfo');
       const titleElement = document.getElementById('mainTitle');
       const descriptionElement = document.getElementById('scheduleDescription');
 
@@ -242,10 +261,28 @@
         return;
       }
 
-      if (scheduleInfoString) {
-        try {
-          const scheduleInfo = JSON.parse(scheduleInfoString);
-          currentScheduleId = scheduleInfo.scheduleId;
+      // 優先從 URL 參數獲取 scheduleId (處理分享連結)
+      const urlParams = new URLSearchParams(window.location.search);
+      const scheduleIdFromUrl = urlParams.get('scheduleId');
+
+      if (scheduleIdFromUrl) {
+        currentScheduleId = scheduleIdFromUrl;
+        // 將從 URL 獲取的 scheduleId 存到 localStorage，以便刷新頁面時仍能載入
+        localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: currentScheduleId }));
+        // 清理 URL 中的 scheduleId，避免用戶複製帶有此參數的 URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        const scheduleInfoString = localStorage.getItem('currentScheduleInfo');
+        if (scheduleInfoString) {
+          try {
+            const scheduleInfo = JSON.parse(scheduleInfoString);
+            currentScheduleId = scheduleInfo.scheduleId;
+          } catch (e) {
+            console.error("Error parsing currentScheduleInfo from localStorage:", e);
+            // 處理錯誤，例如顯示預設內容或提示
+          }
+        }
+      }
 
           if (!currentScheduleId) {
             console.error("No scheduleId found in localStorage.");
@@ -276,11 +313,30 @@
               // 2. 監聽參與者數據的變化 (包括當前用戶的可用時間)
               const participantsRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants');
               participantsRef.on('value', participantsSnapshot => {
-                allParticipantsData = participantsSnapshot.val() || {};
-                currentUserAvailableTimes = (allParticipantsData[currentUser.uid] && allParticipantsData[currentUser.uid].availableTimes) || {};
-                
-                applyMyTimeSelectionsToTable(); // 應用當前用戶的選擇到 "My Time" 表格
-                updateGroupAvailabilityDisplay(); // 更新 "Group Availability" 表格
+                const participantsData = participantsSnapshot.val() || {};
+                allParticipantsData = participantsData; // 更新全域變數
+
+                // 檢查當前用戶是否是參與者，如果不是 (例如透過分享連結首次加入)，則將其加入
+                if (!participantsData[currentUser.uid]) {
+                  console.log(`User ${currentUser.uid} is not a participant. Adding now.`);
+                  const currentUserParticipantRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants/' + currentUser.uid);
+                  const userDisplayName = (currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : "New User")).substring(0,49);
+                  
+                  currentUserParticipantRef.set({
+                    displayName: userDisplayName,
+                    availableTimes: {} // 初始為空
+                  }).then(() => {
+                    console.log(`User ${currentUser.uid} added as participant.`);
+                    // 注意：這裡的 set 操作會觸發 participantsRef.on('value') 的回調，
+                    // 所以下面的更新邏輯會在那個回調中執行。
+                  }).catch(error => {
+                    console.error("Error adding user as participant:", error);
+                  });
+                } else {
+                  currentUserAvailableTimes = (participantsData[currentUser.uid] && participantsData[currentUser.uid].availableTimes) || {};
+                  applyMyTimeSelectionsToTable();
+                  updateGroupAvailabilityDisplay();
+                }
               });
 
             } else {
@@ -297,12 +353,6 @@
             if (descriptionElement) descriptionElement.textContent = initialDescription;
             generateTables();
           });
-        } catch (e) {
-          console.error("Error parsing currentScheduleInfo from localStorage:", e);
-          if (titleElement) titleElement.textContent = initialTimetableName;
-          if (descriptionElement) descriptionElement.textContent = initialDescription;
-          generateTables();
-        }
       } else {
         console.log("No schedule data found in localStorage from SetUpDate.html, using defaults.");
         if (titleElement) titleElement.textContent = initialTimetableName;
@@ -374,7 +424,9 @@
       groupTableHTML += '</tr></thead><tbody>';
 
       if (times.length === 0 || sortedFullDates.length === 0) {
-        const message = times.length === 0 ? "未定義時間段 (請檢查開始/結束時間和間隔)。" : "未選擇日期。";
+        const currentTranslation = translations[window.currentLang || 'en'] || translations['en'];
+        const message = times.length === 0 ? (currentTranslation.alertTimePeriodUndefined || "Time period undefined (check start/end times and interval).")
+                                          : (currentTranslation.alertNoDatesSelected || "No dates selected.");
         const colspan = Math.max(sortedFullDates.length + 1, 1); // +1 是因為時間列
         yourTableHTML += `<tr><td colspan="${colspan}">${message}</td></tr>`;
         groupTableHTML += `<tr><td colspan="${colspan}">${message}</td></tr>`;
@@ -524,8 +576,12 @@
           btnNew: "New",
           btnShare: "Share",
           mainTitle: "TIMETABLE",
-          days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-          time: "Time"
+          time: "Time",
+          alertTimePeriodUndefined: "Time period undefined (check start/end times and interval).",
+          alertLinkCopied: "Share link copied to clipboard!",
+          alertNoDatesSelected: "No dates selected.",
+          alertCopyFailed: "Failed to copy link. Please copy it manually.",
+          alertNoScheduleToShare: "No schedule is currently loaded to share."
         },
         'zh-TW': {
           myTimeLabel: "我的時間",
@@ -533,7 +589,12 @@
           btnNew: "新增",
           btnShare: "分享",
           mainTitle: "時間表",
-          time: "時間"
+          time: "時間",
+          alertTimePeriodUndefined: "未定義時間段 (請檢查開始/結束時間和間隔)。",
+          alertLinkCopied: "分享連結已複製到剪貼簿！",
+          alertNoDatesSelected: "未選擇日期。",
+          alertCopyFailed: "複製連結失敗，請手動複製。",
+          alertNoScheduleToShare: "目前沒有可分享的行程。"
         }
       };
       const t = labels[lang] || labels['en'];
