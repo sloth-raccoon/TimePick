@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&display=swap" rel="stylesheet">
   <!-- Firebase App (必需) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script> <!-- Firebase Auth SDK -->
   <!-- 如果你要用 Firebase Authentication、Database、Analytics...就加上對應模組 -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
   <!-- realtime database  -->
@@ -138,16 +139,7 @@
   <h1>TIMEPICK</h1>
 
   <div class="container">
-    <div id="name-section" class="input-space">
-      <h2 id="username-label">Enter Username</h2>
-      <input type="text" id="username" placeholder="Your Username" required />
-    </div>
-
-    <div class="input-space">
-      <h2 id="password-label">Enter Password</h2>
-      <input type="password" id="password" placeholder="Your Password" required />
-    </div>
-
+    <!-- 移除了用戶名和密碼輸入框 -->
     <button class="create-schedule-btn" onclick="createSchedule()" id="create-btn">
       Create Your First Schedule
     </button>
@@ -174,48 +166,42 @@
 
   <script>
     function createSchedule() {
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value.trim();
+      const currentLang = document.getElementById("language-select").value || "en";
+      const t = translations[currentLang];
 
-      if (!username) {
-        alert('Please enter a username.');
-        return;
-      }
-
-      if (["user123", "timepicker", "admin"].includes(username)) {
-        alert('This username is already taken.');
-        return;
-      }
-
-      if (!password) {
-        alert('Please enter a password.');
-        return;
-      }
-
-      // Redirect to SetUpDate.html
-      window.location.href = 'SetUpDate.html';
+      // 執行 Firebase 匿名登入
+      firebase.auth().signInAnonymously()
+        .then(() => {
+          // 匿名登入成功
+          console.log("User signed in anonymously");
+          // 重定向到 SetUpDate.html
+          window.location.href = 'SetUpDate.html';
+        })
+        .catch((error) => {
+          var errorCode = error.code;
+          var errorMessage = error.message;
+          console.error("Anonymous sign-in error:", errorCode, errorMessage);
+          alert(t.alertAnonymousError + ": " + errorMessage); // 顯示翻譯後的錯誤提示
+        });
     }
 
     function howItWorks() {
-      alert("This app helps you pick times easily!");
+      const currentLang = document.getElementById("language-select").value || "en";
+      alert(translations[currentLang].howItWorksAlert);
     }
 
     const translations = {
       en: {
-        usernameLabel: "Enter Username",
-        passwordLabel: "Enter Password",
-        usernamePlaceholder: "Your Username",
-        passwordPlaceholder: "Your Password",
         createButton: "Create Your First Schedule",
-        howItWorks: "How It Works"
+        howItWorks: "How It Works",
+        howItWorksAlert: "This app helps you pick times easily!",
+        alertAnonymousError: "Error signing in anonymously" // 新增匿名登入錯誤提示
       },
       zh: {
-        usernameLabel: "輸入用戶名稱",
-        passwordLabel: "輸入密碼",
-        usernamePlaceholder: "請輸入用戶名稱",
-        passwordPlaceholder: "請輸入密碼",
         createButton: "建立您的第一個行程",
-        howItWorks: "如何使用"
+        howItWorks: "如何使用",
+        howItWorksAlert: "這個應用程式可以幫助您輕鬆選擇時間！",
+        alertAnonymousError: "匿名登入時發生錯誤" // 新增匿名登入錯誤提示
       }
     };
 
@@ -223,10 +209,6 @@
 
     function updateLanguage(lang) {
       const t = translations[lang];
-      document.getElementById("username-label").textContent = t.usernameLabel;
-      document.getElementById("password-label").textContent = t.passwordLabel;
-      document.getElementById("username").placeholder = t.usernamePlaceholder;
-      document.getElementById("password").placeholder = t.passwordPlaceholder;
       document.getElementById("create-btn").textContent = t.createButton;
       document.querySelector(".how-it-works").textContent = t.howItWorks;
     }

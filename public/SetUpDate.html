@@ -273,7 +273,27 @@
   </div>
 </div>
 
+<!-- Firebase App (必需) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<!-- Firebase Authentication -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<!-- Firebase Realtime Database -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
 <script>
+  // Firebase Configuration (replace with your actual config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDB4VGyvOTvwkBSKzgp_HSeKSWW0NMAOmA", // From your index.html
+    authDomain: "timepick-d4a6e.firebaseapp.com",
+    databaseURL: "https://timepick-d4a6e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "timepick-d4a6e",
+    storageBucket: "timepick-d4a6e.appspot.com",
+    messagingSenderId: "348026209415",
+    appId: "1:348026209415:web:c5959134acfa9dec876422",
+    measurementId: "G-HRG2QH1YHW"
+  };
+  firebase.initializeApp(firebaseConfig);
+
   const translations = {
     en: {
       timetable: "1. Timetable Name:",
@@ -293,8 +313,12 @@
       alertTo: "Please select the end time.",
       alertTimeOrder: "Start time must be earlier than end time.",
       alertDate: "Please select at least one date.",
+      alertSaveError: "An error occurred while saving your schedule. Please try again.",
+      alertNotLoggedIn: "You must be logged in to create or view schedules.",
       weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-      months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+      months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      noRecentTimetables: "No recent timetables found.",
+      loginToSeeRecent: "Please log in to see recent timetables."
     },
     zh: {
       timetable: "1. 時間表名稱：",
@@ -314,12 +338,18 @@
       alertTo: "請選擇結束時間。",
       alertTimeOrder: "開始時間必須早於結束時間。",
       alertDate: "請選擇至少一個日期。",
+      alertSaveError: "儲存您的行程時發生錯誤，請再試一次。",
+      alertNotLoggedIn: "您必須登入才能建立或查看行程。",
       weekdays: ["週日", "週一", "週二", "週三", "週四", "週五", "週六"],
-      months: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+      months: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+      noRecentTimetables: "找不到最近的行程表。",
+      loginToSeeRecent: "請登入以查看最近的行程表。"
     }
   };
 
   let currentLang = "en";
+  let currentUser = null;
+  const createButton = document.getElementById("create-btn");
 
   function updateLanguage(lang) {
     currentLang = lang;
@@ -332,7 +362,7 @@
     document.getElementById("label-to").textContent = t.to;
     document.getElementById("label-date").textContent = t.dateSelect;
     document.getElementById("create-btn").textContent = t.create;
-    document.getElementById("timetable-name").placeholder = t.placeholder;
+    document.getElementById("timetable-name").placeholder = t.placeholder; // This was missing in original diff, ensure it's there
     document.getElementById("timetable-description").placeholder = t.placeholderDesc;
     document.getElementById("label-interval").textContent = t.interval;
 
@@ -349,26 +379,54 @@
 
     // Update Recent Timetables title and list
     document.querySelector(".recent-timetables h2").textContent = t.recentTitle;
-    renderRecentTimetables();
+    if (currentUser) {
+      loadRecentTimetablesForUser(currentUser.uid);
+    } else {
+      const recentList = document.getElementById("recent-list");
+      recentList.innerHTML = `<li>${t.loginToSeeRecent}</li>`;
+    }
 
-    generateCalendar(currentYear, currentMonth);
+    if (typeof currentYear !== 'undefined' && typeof currentMonth !== 'undefined') {
+        generateCalendar(currentYear, currentMonth);
+    } else {
+        // Fallback if calendar hasn't been initialized yet
+        const todayForCalendar = new Date();
+        generateCalendar(todayForCalendar.getFullYear(), todayForCalendar.getMonth());
+    }
   }
 
-  function renderRecentTimetables() {
-  const recentList = document.getElementById("recent-list");
-  recentList.innerHTML = "";
+  function loadRecentTimetablesForUser(userId) {
+    const recentList = document.getElementById("recent-list");
+    const t = translations[currentLang] || translations.en;
+    // Fetch last 5 created schedules, ordered by creation time (newest first if createdAt is a positive timestamp)
+    const schedulesRef = firebase.database().ref('userSchedules/' + userId).orderByChild('createdAt').limitToLast(5);
 
-  const recents = ["Team Project", "Work Schedule", "Study Plan"];
-  recents.forEach(name => {
-    const li = document.createElement("li");
-    li.textContent = name;
-    li.addEventListener("click", () => {
-      // navigate to the timetable page for this name
-      window.location.href = `/timetable/${encodeURIComponent(name)}`;
+    schedulesRef.on('value', (snapshot) => {
+      recentList.innerHTML = ""; // Clear previous list
+      if (snapshot.exists()) {
+        let schedules = [];
+        snapshot.forEach(childSnapshot => {
+          schedules.push({ id: childSnapshot.key, ...childSnapshot.val() });
+        });
+        schedules.reverse(); // Display newest first
+
+        schedules.forEach(schedule => {
+          const li = document.createElement("li");
+          li.textContent = schedule.name || "Untitled Schedule";
+          li.addEventListener("click", () => {
+            localStorage.setItem('currentScheduleInfo', JSON.stringify({ userId: userId, scheduleId: schedule.id }));
+            window.location.href = 'MakeTime.html';
+          });
+          recentList.appendChild(li);
+        });
+      } else {
+        recentList.innerHTML = `<li>${t.noRecentTimetables}</li>`;
+      }
+    }, (error) => {
+      console.error("Error loading recent timetables:", error);
+      recentList.innerHTML = `<li>Error loading timetables.</li>`;
     });
-    recentList.appendChild(li);
-  });
-}
+  }
 
   // Time select options
   function populateTimeOptions() {
@@ -531,7 +589,7 @@
   }
 
   // Create button click handler (just example alert)
-  document.getElementById("create-btn").addEventListener("click", () => {
+  createButton.addEventListener("click", () => {
     const t = translations[currentLang];
 
     const name = document.getElementById("timetable-name").value.trim();
@@ -539,6 +597,11 @@
     const toTime = document.getElementById("end-time").value;
     const description = document.getElementById("timetable-description").value.trim();
     const timeInterval = document.getElementById("time-interval").value;
+
+    if (!currentUser) {
+      alert(t.alertNotLoggedIn);
+      return;
+    }
 
     if (!name) {
       alert(t.alertName);
@@ -564,24 +627,29 @@
       return;
     }
 
-    // 準備要保存到 localStorage 的資料
     const scheduleSetupData = {
         name: name,
         description: description,
         fromTime: fromTime,
         toTime: toTime,
         timeInterval: timeInterval,
-        // 對日期進行排序以確保一致性，儘管 MakeTime.html 也會排序
-        dates: Array.from(selectedDates).sort((a, b) => new Date(a.replace(/-/g, '/')) - new Date(b.replace(/-/g, '/')))
+        dates: Array.from(selectedDates).sort((a, b) => new Date(a.replace(/-/g, '/')) - new Date(b.replace(/-/g, '/'))),
+        createdAt: firebase.database.ServerValue.TIMESTAMP
     };
-    try {
-        localStorage.setItem('setUpDate_data', JSON.stringify(scheduleSetupData));
-        console.log("Data saved to localStorage for MakeTime.html:", scheduleSetupData);
-        window.location.href = 'MakeTime.html'; // 重定向到下一頁
-    } catch (error) {
-        console.error("Error saving data to localStorage:", error);
-        alert("An error occurred while saving your setup. Please try again.");
-    }
+
+    const newScheduleRef = firebase.database().ref('userSchedules/' + currentUser.uid).push();
+    newScheduleRef.set(scheduleSetupData)
+      .then(() => {
+        const newScheduleId = newScheduleRef.key;
+        console.log("Schedule saved to Firebase with ID:", newScheduleId);
+        // Store info needed by MakeTime.html to fetch this schedule
+        localStorage.setItem('currentScheduleInfo', JSON.stringify({ userId: currentUser.uid, scheduleId: newScheduleId }));
+        window.location.href = 'MakeTime.html';
+      })
+      .catch(error => {
+        console.error("Error saving schedule to Firebase:", error);
+        alert(t.alertSaveError);
+      });
   });
 
   // Language switch event
@@ -590,16 +658,36 @@
   });
 
   // Initialization
-  function init() {
+  function initPageMain() {
     populateTimeOptions();
-    renderRecentTimetables();
-
     generateCalendar(today.getFullYear(), today.getMonth()); // 使用全局 today 變量
-
-    updateLanguage(currentLang);
+    updateLanguage(currentLang); // Sets up initial language for non-user-specific parts
   }
 
-  init();
+  function initPageForUser() {
+    if (!currentUser) return;
+    loadRecentTimetablesForUser(currentUser.uid);
+    createButton.disabled = false;
+  }
+
+  function initPageWithoutUser() {
+    const t = translations[currentLang] || translations.en;
+    document.getElementById("recent-list").innerHTML = `<li>${t.loginToSeeRecent}</li>`;
+    createButton.disabled = true;
+    // alert(t.alertNotLoggedIn); // Optionally alert or redirect
+  }
+
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      initPageForUser();
+    } else {
+      currentUser = null;
+      initPageWithoutUser();
+    }
+  });
+
+  initPageMain(); // Call general page initialization
 
 </script>
 
