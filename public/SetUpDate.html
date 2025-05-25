@@ -362,18 +362,24 @@
     document.getElementById("label-to").textContent = t.to;
     document.getElementById("label-date").textContent = t.dateSelect;
     document.getElementById("create-btn").textContent = t.create;
-    document.getElementById("timetable-name").placeholder = t.placeholder; // This was missing in original diff, ensure it's there
+    document.getElementById("timetable-name").placeholder = t.placeholder;
     document.getElementById("timetable-description").placeholder = t.placeholderDesc;
     document.getElementById("label-interval").textContent = t.interval;
 
     // Update Time Interval Options
     const intervalSelect = document.getElementById("time-interval");
+    const currentIntervalValue = intervalSelect.value; // Save current value
     intervalSelect.innerHTML = "";
     t.intervalOptions.forEach((opt, i) => {
       const option = document.createElement("option");
-      option.value = [15, 30, 45, 60][i];
+      const value = [15, 30, 45, 60][i];
+      option.value = value;
       option.textContent = opt;
-      if ([15,30,45,60][i] === 30) option.selected = true;
+      if (String(value) === currentIntervalValue) { // Restore selection
+          option.selected = true;
+      } else if (!currentIntervalValue && value === 30) { // Default to 30 if no previous selection
+          option.selected = true;
+      }
       intervalSelect.appendChild(option);
     });
 
@@ -398,23 +404,34 @@
   function loadRecentTimetablesForUser(userId) {
     const recentList = document.getElementById("recent-list");
     const t = translations[currentLang] || translations.en;
-    // Fetch last 5 created schedules, ordered by creation time (newest first if createdAt is a positive timestamp)
-    const schedulesRef = firebase.database().ref('userSchedules/' + userId).orderByChild('createdAt').limitToLast(5);
+    
+    // 修改查詢以適應新的資料結構：查詢 schedules 節點下，metaData.creatorUid 等於當前 userId 的行程
+    const schedulesRef = firebase.database().ref('schedules')
+                                .orderByChild('metaData/creatorUid') // 根據 metaData 下的 creatorUid 排序/篩選
+                                .equalTo(userId) // 篩選出 creatorUid 是當前用戶的行程
+                                .limitToLast(5); // 獲取最新的5個
 
     schedulesRef.on('value', (snapshot) => {
       recentList.innerHTML = ""; // Clear previous list
       if (snapshot.exists()) {
         let schedules = [];
         snapshot.forEach(childSnapshot => {
-          schedules.push({ id: childSnapshot.key, ...childSnapshot.val() });
+          const scheduleData = childSnapshot.val();
+          if (scheduleData && scheduleData.metaData) {
+            // 儲存整個 metaData 和行程的 ID
+            schedules.push({ id: childSnapshot.key, ...scheduleData.metaData });
+          }
         });
-        schedules.reverse(); // Display newest first
+        // Firebase limitToLast 預設是升序，如果需要降序（最新在前），需要在客戶端反轉
+        // 或者，如果 createdAt 是負數時間戳，limitToFirst 可以得到最新的
+        schedules.sort((a, b) => b.createdAt - a.createdAt); // 確保按創建時間降序排列
 
         schedules.forEach(schedule => {
           const li = document.createElement("li");
           li.textContent = schedule.name || "Untitled Schedule";
           li.addEventListener("click", () => {
-            localStorage.setItem('currentScheduleInfo', JSON.stringify({ userId: userId, scheduleId: schedule.id }));
+            // 只需要 scheduleId，userId 可以從 currentUser 獲取
+            localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: schedule.id }));
             window.location.href = 'MakeTime.html';
           });
           recentList.appendChild(li);
@@ -448,30 +465,30 @@
       optionTo.textContent = timeStr;
       endTime.appendChild(optionTo);
     }
+    // Set default selections, e.g., 9:00 to 17:00
+    availableTime.value = "09:00";
+    endTime.value = "17:00";
 
-    availableTime.selectedIndex = 0;
-    endTime.selectedIndex = 0;
   }
 
   // Calendar generation and management
   let currentYear, currentMonth;
   let selectedDates = new Set();
-  const today = new Date(); //定義 today
-  today.setHours(0, 0, 0, 0); // 將時間標準化為當天的開始，以便比較
+  const today = new Date(); 
+  today.setHours(0, 0, 0, 0); 
 
   function generateCalendar(year, month) {
     currentYear = year;
     currentMonth = month;
 
     const t = translations[currentLang];
-    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 (Sun) - 6 (Sat)
+    const firstDayOfMonth = new Date(year, month, 1).getDay(); 
     const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate(); // 上個月的總天數
+    const daysInPrevMonth = new Date(year, month, 0).getDate(); 
 
     const calendar = document.getElementById("calendar");
     calendar.innerHTML = "";
 
-    // Calendar header with month and navigation buttons
     const header = document.createElement("div");
     header.classList.add("calendar-header");
     const prevBtn = document.createElement("button");
@@ -500,10 +517,8 @@
 
     calendar.appendChild(header);
 
-    // Build calendar table
     const table = document.createElement("table");
     table.classList.add("calendar-table");
-    // Weekday header
     const thead = document.createElement("thead");
     const trHead = document.createElement("tr");
     t.weekdays.forEach(day => {
@@ -514,21 +529,19 @@
     thead.appendChild(trHead);
     table.appendChild(thead);
 
-    // Days
     const tbody = document.createElement("tbody");
-    let dateCounter = 1; // 當前月份的日期計數器
-    let nextMonthDateCounter = 1; // 下個月預覽日期的計數器
+    let dateCounter = 1; 
+    let nextMonthDateCounter = 1; 
 
-    for (let i = 0; i < 6; i++) { // 一個月最多需要6行來顯示
+    for (let i = 0; i < 6; i++) { 
       const tr = document.createElement("tr");
-      for (let j = 0; j < 7; j++) { // 每週7天
+      for (let j = 0; j < 7; j++) { 
         const td = document.createElement("td");
         let cellDateObj;
         let dateKey;
         let cellText;
 
         if (i === 0 && j < firstDayOfMonth) {
-          // 顯示上個月的日期
           const dayOfPrevMonth = daysInPrevMonth - firstDayOfMonth + j + 1;
           cellText = dayOfPrevMonth;
           const prevMonthActual = (month === 0) ? 11 : month - 1;
@@ -537,7 +550,6 @@
           dateKey = `${prevYearActual}-${String(prevMonthActual + 1).padStart(2, '0')}-${String(dayOfPrevMonth).padStart(2, '0')}`;
           td.classList.add("not-current-month");
         } else if (dateCounter > daysInCurrentMonth) {
-          // 顯示下個月的日期
           cellText = nextMonthDateCounter;
           const nextMonthActual = (month === 11) ? 0 : month + 1;
           const nextYearActual = (month === 11) ? year + 1 : year;
@@ -546,19 +558,17 @@
           td.classList.add("not-current-month");
           nextMonthDateCounter++;
         } else {
-          // 顯示當前月份的日期
           cellText = dateCounter;
           cellDateObj = new Date(year, month, dateCounter);
-          // 標準化 dateKey 為 YYYY-MM-DD 格式
           dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dateCounter).padStart(2, '0')}`;
           dateCounter++;
         }
 
         td.textContent = cellText;
-        td.dataset.date = dateKey; // 將標準化後的 dateKey 存儲到 data 屬性
+        td.dataset.date = dateKey; 
 
         if (cellDateObj < today) {
-          td.classList.add("disabled"); // 如果日期早於今天，則禁用
+          td.classList.add("disabled"); 
         }
 
         if (selectedDates.has(dateKey)) {
@@ -566,8 +576,8 @@
         }
 
         td.onclick = () => {
-          if (td.classList.contains('disabled')) return; // 如果日期被禁用，則不執行任何操作
-          const clickedDateKey = td.dataset.date; // 從 data 屬性獲取 dateKey
+          if (td.classList.contains('disabled')) return; 
+          const clickedDateKey = td.dataset.date; 
           if (selectedDates.has(clickedDateKey)) {
             selectedDates.delete(clickedDateKey);
             td.classList.remove("selected");
@@ -579,7 +589,6 @@
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
-      // 如果當前月份的日期已全部渲染完畢，且下個月的預覽日期也開始渲染，則可以提前結束外層循環
       if (dateCounter > daysInCurrentMonth && i >= Math.ceil((firstDayOfMonth + daysInCurrentMonth) / 7) -1 ) {
           break;
       }
@@ -588,7 +597,6 @@
     calendar.appendChild(table);
   }
 
-  // Create button click handler (just example alert)
   createButton.addEventListener("click", () => {
     const t = translations[currentLang];
 
@@ -615,10 +623,9 @@
       alert(t.alertTo);
       return;
     }
-    // 驗證開始時間是否早於結束時間
     const fromTimeHour = parseInt(fromTime.split(':')[0]);
     const toTimeHour = parseInt(toTime.split(':')[0]);
-    if (fromTimeHour >= toTimeHour && !(fromTimeHour === 0 && toTimeHour === 0)) { // 允許 00:00 到 00:00 (在MakeTime中會是空時間段)
+    if (fromTimeHour >= toTimeHour && !(fromTimeHour === 0 && toTimeHour === 0)) { 
         alert(t.alertTimeOrder);
         return;
     }
@@ -627,29 +634,80 @@
       return;
     }
 
-    const scheduleSetupData = {
+    // 準備行程的元資料 (metaData)
+    const scheduleMetaData = {
         name: name,
         description: description,
         fromTime: fromTime,
         toTime: toTime,
         timeInterval: timeInterval,
         dates: Array.from(selectedDates).sort((a, b) => new Date(a.replace(/-/g, '/')) - new Date(b.replace(/-/g, '/'))),
-        createdAt: firebase.database.ServerValue.TIMESTAMP
+        creatorUid: currentUser.uid, // 記錄創建者 UID
+        createdAt: firebase.database.ServerValue.TIMESTAMP // 伺服器時間戳
     };
 
-    const newScheduleRef = firebase.database().ref('userSchedules/' + currentUser.uid).push();
-    newScheduleRef.set(scheduleSetupData)
-      .then(() => {
-        const newScheduleId = newScheduleRef.key;
-        console.log("Schedule saved to Firebase with ID:", newScheduleId);
-        // Store info needed by MakeTime.html to fetch this schedule
-        localStorage.setItem('currentScheduleInfo', JSON.stringify({ userId: currentUser.uid, scheduleId: newScheduleId }));
-        window.location.href = 'MakeTime.html';
-      })
-      .catch(error => {
-        console.error("Error saving schedule to Firebase:", error);
-        alert(t.alertSaveError);
-      });
+    // 1. 在 'schedules' 節點下創建新的行程 ID
+    const newScheduleRef = firebase.database().ref('schedules').push();
+    const newScheduleId = newScheduleRef.key;
+
+    // 2. 準備要寫入的完整行程資料，包含 metaData 和初始的 participants
+    const fullScheduleData = {
+      metaData: scheduleMetaData,
+      participants: {
+        [currentUser.uid]: { // 將創建者作為第一個參與者
+          // displayName: currentUser.displayName || currentUser.email.split('@')[0] || "Creator", // 嘗試獲取顯示名稱或從郵件提取
+          availableTimes: {} // 初始時，創建者還未選擇時間
+        }
+      }
+    };
+    
+    // (可選) 如果有 users 節點，可以嘗試從那裡獲取 displayName
+    // 這部分可以根據您的 users 節點結構來調整
+    const userProfileRef = firebase.database().ref('users/' + currentUser.uid + '/displayName');
+    userProfileRef.once('value').then(snapshot => {
+        if (snapshot.exists() && snapshot.val()) {
+            fullScheduleData.participants[currentUser.uid].displayName = snapshot.val();
+        } else if (currentUser.displayName) {
+            fullScheduleData.participants[currentUser.uid].displayName = currentUser.displayName;
+        } else {
+            // Fallback if no displayName is found in DB or auth profile
+            const emailNamePart = currentUser.email ? currentUser.email.split('@')[0] : "User";
+            fullScheduleData.participants[currentUser.uid].displayName = emailNamePart;
+        }
+
+        // 3. 將完整的行程資料寫入到新的行程 ID 下
+        newScheduleRef.set(fullScheduleData)
+          .then(() => {
+            console.log("Schedule saved to Firebase with ID:", newScheduleId);
+            
+            // (可選) 如果您有一個 users 節點來儲存用戶參與的行程列表，可以在這裡更新
+            // firebase.database().ref('users/' + currentUser.uid + '/participatedSchedules/' + newScheduleId).set(true);
+
+            // 儲存 scheduleId 到 localStorage，MakeTime.html 會用到
+            localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: newScheduleId }));
+            window.location.href = 'MakeTime.html';
+          })
+          .catch(error => {
+            console.error("Error saving schedule to Firebase:", error);
+            alert(t.alertSaveError);
+          });
+    }).catch(error => {
+        console.error("Error fetching user display name:", error);
+        // 即使獲取 displayName 失敗，也繼續儲存行程，使用預設的 displayName
+        const emailNamePart = currentUser.email ? currentUser.email.split('@')[0] : "User";
+        fullScheduleData.participants[currentUser.uid].displayName = emailNamePart;
+
+        newScheduleRef.set(fullScheduleData)
+          .then(() => {
+            console.log("Schedule saved to Firebase with ID (fallback displayName):", newScheduleId);
+            localStorage.setItem('currentScheduleInfo', JSON.stringify({ scheduleId: newScheduleId }));
+            window.location.href = 'MakeTime.html';
+          })
+          .catch(saveError => {
+            console.error("Error saving schedule to Firebase (fallback displayName):", saveError);
+            alert(t.alertSaveError);
+          });
+    });
   });
 
   // Language switch event
@@ -660,8 +718,8 @@
   // Initialization
   function initPageMain() {
     populateTimeOptions();
-    generateCalendar(today.getFullYear(), today.getMonth()); // 使用全局 today 變量
-    updateLanguage(currentLang); // Sets up initial language for non-user-specific parts
+    generateCalendar(today.getFullYear(), today.getMonth()); 
+    updateLanguage(currentLang); 
   }
 
   function initPageForUser() {
@@ -674,20 +732,21 @@
     const t = translations[currentLang] || translations.en;
     document.getElementById("recent-list").innerHTML = `<li>${t.loginToSeeRecent}</li>`;
     createButton.disabled = true;
-    // alert(t.alertNotLoggedIn); // Optionally alert or redirect
+    // alert(t.alertNotLoggedIn); 
   }
 
   firebase.auth().onAuthStateChanged(user => {
     if (user) {
       currentUser = user;
-      initPageForUser();
+      // 確保在 currentUser 被設定後，再嘗試加載用戶相關數據或更新UI
+      initPageForUser(); 
     } else {
       currentUser = null;
       initPageWithoutUser();
     }
   });
 
-  initPageMain(); // Call general page initialization
+  initPageMain(); 
 
 </script>
 
