@@ -235,16 +235,30 @@
 
     function handleShareSchedule() {
       if (!currentScheduleId) {
-        alert((translations[window.currentLang || 'en'] || translations['en']).alertNoScheduleToShare);
+        const currentTranslation = translations[window.currentLang || 'en'] || translations['en'];
+        alert(currentTranslation.alertNoScheduleToShare);
         return;
       }
+
       const shareLink = `${window.location.origin}${window.location.pathname}?scheduleId=${currentScheduleId}`;
-      navigator.clipboard.writeText(shareLink).then(() => {
-        alert((translations[window.currentLang || 'en'] || translations['en']).alertLinkCopied + "\n" + shareLink);
-      }).catch(err => {
-        console.error('Failed to copy link: ', err);
-        alert((translations[window.currentLang || 'en'] || translations['en']).alertCopyFailed);
-      });
+      const currentTranslation = translations[window.currentLang || 'en'] || translations['en'];
+      console.log("Generated share link:", shareLink); // 用於調試
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareLink)
+          .then(() => {
+            alert(currentTranslation.alertLinkCopied + "\n" + shareLink);
+          })
+          .catch(err => {
+            console.error('Failed to copy link using navigator.clipboard:', err);
+            // Fallback: 提示用戶手動複製
+            prompt(currentTranslation.alertCopyFailed + " " + "Please copy this link manually:", shareLink);
+          });
+      } else {
+        // Fallback for browsers/contexts where navigator.clipboard is not available
+        console.warn('navigator.clipboard.writeText API not available. Using prompt as fallback.');
+        prompt("Please copy this link manually (clipboard API not available):", shareLink);
+      }
     }
 
     function loadDataAndGenerateUI() {
@@ -332,7 +346,8 @@
     }
 
     function generateTables() {
-      const interval = initialInterval;
+      // 確保 interval 是數字
+      const numericInterval = parseInt(initialInterval, 10) || 30;
       const startHour = initialStartHour;
       const endHour = initialEndHour;
       const times = [];
@@ -340,13 +355,13 @@
       if (endHour <= startHour && !(startHour === 0 && endHour === 0) ) { // 時間範圍跨越午夜 (例如 22:00 到 02:00)
         // 從 startHour 到 23:xx 的時間
         for (let hour = startHour; hour < 24; hour++) {
-          for (let min = 0; min < 60; min += interval) {
+          for (let min = 0; min < 60; min += numericInterval) { // 使用 numericInterval
             times.push(`${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
           }
         }
         // 從 00:00 到 (但不包括) endHour 的時間
         for (let hour = 0; hour < endHour; hour++) {
-          for (let min = 0; min < 60; min += interval) {
+          for (let min = 0; min < 60; min += numericInterval) { // 使用 numericInterval
             times.push(`${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
           }
         }
@@ -354,8 +369,8 @@
         if (startHour === 0 && endHour === 0) {
             // 如果開始和結束都是00:00，則不生成時間，或者根據需求定義行為
         } else {
-            for (let hour = startHour; hour < endHour; hour++) {
-                for (let min = 0; min < 60; min += interval) {
+            for (let hour = startHour; hour < endHour; hour++) { // 使用 numericInterval
+                for (let min = 0; min < 60; min += numericInterval) {
                     times.push(`${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
                 }
             }
@@ -499,7 +514,8 @@
     }
 
     function rgbToHex(rgb) {
-      if (!rgb.startsWith('rgb')) return rgb;
+      // Handle cases where rgb might be undefined or not a string starting with 'rgb'
+      if (typeof rgb !== 'string' || !rgb.startsWith('rgb')) return rgb;
       const [r, g, b] = rgb.match(/\d+/g).map(Number);
       return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
     }
