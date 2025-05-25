@@ -392,19 +392,23 @@
                   userProfileRef.once('value').then(profileSnapshot => {
                     let userDisplayName = "";
                     if (profileSnapshot.exists() && String(profileSnapshot.val()).trim().length > 0) {
-                        userDisplayName = String(profileSnapshot.val()).trim().substring(0,49);
+                        // 優先使用 users/<uid>/displayName (如果用戶有設定過)
+                        userDisplayName = String(profileSnapshot.val()).trim();
                     } else if (currentUser.displayName && currentUser.displayName.trim().length > 0) {
-                        userDisplayName = currentUser.displayName.trim().substring(0,49);
+                        // 其次使用 Firebase Auth 物件中的 displayName (如果存在)
+                        userDisplayName = currentUser.displayName.trim();
                     } else {
+                        // 最後，從 currentUser.email (我們構造的 name@example.com) 中提取 name 部分
                         let emailNamePart = currentUser.email ? currentUser.email.split('@')[0].trim() : "";
-                        if (!userDisplayName || userDisplayName.length === 0) { // Check userDisplayName, not emailNamePart
+                        if (emailNamePart.length > 0) {
+                            userDisplayName = emailNamePart;
+                        } else { // 極端情況下的後備
                             userDisplayName = "User_" + (currentUser.uid ? currentUser.uid.substring(0, 5) : Date.now().toString().slice(-5));
                         }
-                        userDisplayName = userDisplayName.substring(0,49);
                     }
 
                     newParticipantRef.set({
-                      displayName: userDisplayName, // Ensure displayName is set
+                      displayName: userDisplayName.substring(0,49), // 確保長度符合規則
                       availableTimes: {} // 初始為空
                     }).then(() => {
                       console.log(`User ${currentUser.uid} added as participant to schedule ${currentScheduleId}.`);
