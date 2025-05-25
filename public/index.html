@@ -186,7 +186,7 @@
   <script>
     function handleAuthSuccess(userCredential) {
       const user = userCredential.user;
-      console.log("Authentication successful for user:", user.uid);
+      console.log("Login successful for user:", user.uid);
       // 重定向到 SetUpDate.html
       window.location.href = 'SetUpDate.html';
     }
@@ -256,10 +256,25 @@
       // 將 name 轉換為 Firebase Auth 可接受的 email 格式
       const emailForFirebase = name + "@example.com";
 
-      // 這裡我們假設註冊後也直接建立行程，所以直接跳轉
       // 如果密碼太弱，Firebase 會拒絕
       firebase.auth().createUserWithEmailAndPassword(emailForFirebase, password)
-        .then(handleAuthSuccess)
+        .then((userCredential) => {
+          // 註冊成功
+          const user = userCredential.user;
+          console.log("Registration successful for user:", user.uid, "as", emailForFirebase);
+          
+          // 清空輸入欄位（可選，但建議清空密碼）
+          // document.getElementById('name').value = ""; // 可以不清空name，方便用戶直接登入
+          document.getElementById('password').value = "";
+          
+          // 提示用戶註冊成功，請登入
+          if (errorMessageElement) {
+            errorMessageElement.textContent = t.alertRegisterSuccess;
+            errorMessageElement.style.color = '#059669'; // 成功訊息用綠色
+          } else {
+            alert(t.alertRegisterSuccess);
+          }
+        })
         .catch(error => handleAuthError(error, currentLang));
     }
 
@@ -284,7 +299,8 @@
         alertEmailInUse: "This name (or its corresponding email representation) is already in use.", // 調整提示
         alertInvalidEmail: "The email address is not valid.",
         alertWeakPassword: "The password is too weak. It should be at least 6 characters.",
-        alertLoginFailed: "Login failed. Please check your email and password.",
+        alertLoginFailed: "Login failed. Please check your name and password.", // 已修改
+        alertRegisterSuccess: "Registration successful! Please log in.", // 新增註冊成功提示
         alertEmptyFields: "Please enter both name and password." // 調整提示
       },
       zh: {
@@ -299,7 +315,8 @@
         alertEmailInUse: "此名稱（或其對應的電子郵件格式）已被使用。", // 調整提示
         alertInvalidEmail: "電子郵件地址格式無效。",
         alertWeakPassword: "密碼強度不足，至少需要6個字元。",
-        alertLoginFailed: "登入失敗，請檢查您的電子郵件和密碼。",
+        alertLoginFailed: "登入失敗，請檢查您的名稱和密碼。", // 已修改
+        alertRegisterSuccess: "註冊成功！請登入。", // 新增註冊成功提示
         alertEmptyFields: "請輸入名稱和密碼。" // 調整提示
       }
     };
@@ -307,6 +324,11 @@
     const select = document.getElementById("language-select");
 
     function updateLanguage(lang) {
+      // 清除可能存在的舊訊息
+      const errorMessageElement = document.getElementById('auth-error-message');
+      if (errorMessageElement) {
+        errorMessageElement.textContent = "";
+      }
       const t = translations[lang];
       document.getElementById("name-label").textContent = t.nameLabel; // 修改
       document.getElementById("password-label").textContent = t.passwordLabel;
