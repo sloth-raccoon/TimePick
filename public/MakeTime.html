@@ -363,13 +363,6 @@
             if (descriptionElement) descriptionElement.textContent = initialDescription;
             generateTables();
           });
-      } 
-      else {
-        console.log("No schedule data found in localStorage from SetUpDate.html, using defaults.");
-        if (titleElement) titleElement.textContent = initialTimetableName;
-        if (descriptionElement) descriptionElement.textContent = initialDescription;
-        generateTables();
-      }
     }
 
     function generateTables() {
