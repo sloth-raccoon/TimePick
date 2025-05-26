@@ -401,6 +401,17 @@
       }
     }
 
+    function updateDeleteButtonVisibility() {
+      const deleteButton = document.getElementById('btnDelete');
+      if (deleteButton) { // 確保按鈕元素存在
+        if (currentUser && currentScheduleId && initialCreatorUid === currentUser.uid) {
+          deleteButton.style.display = 'inline-block'; // 如果是創建者，顯示按鈕
+        } else {
+          deleteButton.style.display = 'none'; // 否則隱藏按鈕
+        }
+      }
+    }
+
     function loadDataAndGenerateUI() {
       const titleElement = document.getElementById('mainTitle');
       const descriptionElement = document.getElementById('scheduleDescription');
@@ -466,6 +477,7 @@
               if (descriptionElement) descriptionElement.textContent = initialDescription;
               
               generateTables(); // 先生成表格結構
+              updateDeleteButtonVisibility(); // 在獲取 metaData 並設定 initialCreatorUid 後更新刪除按鈕狀態
 
               // 2. 監聽參與者數據的變化 (包括當前用戶的可用時間)
               const participantsRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants');
@@ -763,13 +775,7 @@
       } else { // If user not known, generate empty tables with correct time label
         generateTables();
       }
-      // 根據是否為創建者來決定是否顯示刪除按鈕
-      const deleteButton = document.getElementById('btnDelete');
-      if (deleteButton && currentUser && currentScheduleId && initialCreatorUid === currentUser.uid) {
-        deleteButton.style.display = 'inline-block'; // 如果是創建者，顯示按鈕
-      } else if (deleteButton) {
-        deleteButton.style.display = 'none'; // 否則隱藏按鈕
-      }
+      updateDeleteButtonVisibility(); // 語言切換後也嘗試更新按鈕狀態
     }
 
     // Tooltip 相關函數
