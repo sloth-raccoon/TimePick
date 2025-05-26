@@ -324,9 +324,9 @@
       weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
       months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
       noRecentTimetables: "No recent timetables found.",
-      loginToSeeRecent: "Please log in to see recent timetables."
+      loginToSeeRecent: "Please log in to see recent timetables." // Make sure this key exists if used
     },
-    zh: {
+    'zh-TW': { // <--- 修改鍵名以匹配 <select> 中的 value
       timetable: "1. 時間表名稱：",
       description: "描述：",
       timeSelect: "2. 選擇可用時間：",
@@ -347,7 +347,7 @@
       alertSaveError: "儲存您的行程時發生錯誤，請再試一次。",
       alertNotLoggedIn: "您必須登入才能建立或查看行程。",
       weekdays: ["週日", "週一", "週二", "週三", "週四", "週五", "週六"],
-      months: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+      months: ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"], // 稍微調整月份顯示
       noRecentTimetables: "找不到最近的行程表。",
       loginToSeeRecent: "請登入以查看最近的行程表。"
     }
@@ -372,7 +372,8 @@
   const createButton = document.getElementById("create-btn");
   function updateLanguage(lang) {
     currentLang = lang;
-    const t = translations[lang];
+    // 確保如果找不到特定語言的翻譯，則回退到英文
+    const t = translations[lang] || translations.en; 
 
     document.getElementById("label-timetable").textContent = t.timetable;
     document.getElementById("label-description").textContent = t.description;
