@@ -16,6 +16,10 @@
       flex-direction: column; /* Stack elements vertically */
       align-items: center; /* Center content horizontally */
       min-height: 100vh;
+      padding: 10px; /* Add some padding to body */
+    }
+    * {
+      box-sizing: border-box;
     }
     .language-switcher-maketime { /* New class for MakeTime.html language switcher */
       position: absolute;
@@ -32,14 +36,14 @@
       cursor: pointer;
     }
     .main-content-area { /* Renamed .main to avoid conflict with a potential main semantic tag, and for clarity */
-      width: 1000px;
+      width: 100%; /* Make it full width */
+      max-width: 1000px; /* But limit its max width */
       background: white;
       padding: 20px;
       border-radius: 20px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
       display: flex;
       flex-direction: column;
-      gap: 20px; /* 保持內部元素的間距 */
       margin-top: 0px; /* 將此處改為0px，以減少與上方TIMEPICK標題的間距 */
     }
     .header {
@@ -48,6 +52,7 @@
       align-items: center;
       background-color: #2196f3;
       padding: 10px 20px;
+      margin-bottom: 15px; /* Add some space below header */
       border-radius: 8px;
     }
     .header .left-buttons,
@@ -91,8 +96,8 @@
       text-align: center;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* 更新字體以匹配 SetUpDate.html 的 Recent Timetables */
       color: #334155; /* 新增顏色以匹配 SetUpDate.html 的 Recent Timetables */
-      font-weight: 700;
       font-size: 60px;
+      font-weight: 600; /* Slightly less bold */
       margin: 0 0 5px 0; /* 調整標題下方的邊距，為描述文字留出空間 */
       letter-spacing: 1.2px;
       white-space: nowrap; 
@@ -100,11 +105,10 @@
     .container {
       display: flex;
       gap: 20px;
-      background: white;
-      padding: 20px;
-      border-radius: 20px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-      margin-top: 20px;
+      /* Removed background, padding, shadow, margin from here as .main-content-area now handles it */
+      width: 100%; /* Ensure it takes full width of its parent */
+      flex-wrap: wrap; /* Allow boxes to wrap on smaller screens */
+      justify-content: center; /* Center boxes when they wrap */
     }
     .box {
       flex: 1;
@@ -112,6 +116,7 @@
       padding: 10px;
       border-radius: 5px;
       overflow-x: auto; /* 新增此行以允許水平滾動 */
+      min-width: 280px; /* Give boxes a minimum width before wrapping/shrinking too much */
     }
     h3 { /* Add style for h3 */
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -180,6 +185,31 @@
     }
     .box { /* 確保 .box 有 position: relative 以便 tooltip 定位 */
         position: relative;
+    }
+
+    /* Media Query for smaller screens */
+    @media (max-width: 768px) { /* For tablets and large phones */
+      .main-content-area {
+        padding: 15px;
+      }
+      .container {
+        flex-direction: column; /* Stack boxes vertically */
+        gap: 15px;
+      }
+      .box {
+        min-width: 100%; /* Allow boxes to take full width when stacked */
+      }
+      h1#mainTitle {
+        font-size: 32px; /* Reduce schedule title size */
+      }
+      .schedule-description {
+        font-size: 16px; /* Reduce description font size */
+      }
+    }
+    @media (max-width: 480px) { /* For smaller phones */
+      .site-title-main {
+        font-size: 40px; /* Reduce main site title */
+      }
     }
   </style>
 </head>

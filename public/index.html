@@ -26,7 +26,7 @@
       justify-content: flex-start;
       min-height: 100vh;
       position: relative;
-      padding-top: 40px;
+      padding: 20px 10px 40px 10px; /* 調整 body padding，左右留出空間 */
     }
     /* Apply border-box sizing to all elements for easier layout management */
     * {
@@ -53,8 +53,9 @@
       color: #4c4c6d;
       font-weight: 700;
       letter-spacing: 1.2px;
-      margin-top: 80px;
+      margin-top: 40px; /* 減小頂部間距 */
       margin-bottom: -20px;
+      text-align: center; /* 標題居中 */
     }
 
     .container {
@@ -64,8 +65,8 @@
       background: white;
       border-radius: 20px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      padding: 25px 20px; /* 稍微調整內邊距 */
-      margin-top: 30px;
+      padding: 20px 15px; /* 調整內邊距 */
+      margin: 20px auto 0 auto; /* 調整 margin，左右 auto 使其在 body 內居中 */
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -134,6 +135,15 @@
       margin-top: 12px; /* 調整與上方按鈕的間距 */
       min-height: 1.1em; /* 預留空間，避免內容跳動 */
       text-align: center; /* 錯誤訊息居中 */
+    }
+
+    /* Media Query for smaller screens */
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 40px; /* 在小螢幕上減小主標題字型大小 */
+        margin-top: 20px;
+        margin-bottom: -10px;
+      }
     }
   </style>
 </head>

@@ -22,6 +22,10 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       padding: 40px 0;
     }
+    /* Apply border-box sizing to all elements for easier layout management */
+    * {
+      box-sizing: border-box;
+    }
 
     .language-switcher {
       position: absolute;
@@ -97,6 +101,8 @@
       align-items: center;
       gap: 15px;
       margin-bottom: 20px;
+      /* Default to row layout for larger screens */
+      flex-direction: row; 
     }
 
     label {
@@ -108,7 +114,7 @@
       padding: 12px;
       font-size: 16px;
       width: 100%;
-      max-width: 300px;
+      max-width: 300px; /* Default max-width for larger screens */
       border-radius: 10px;
       border: 1px solid #cbd5e1;
       background-color: #f8fafc;
