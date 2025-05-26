@@ -338,10 +338,14 @@
 
     const select = document.getElementById("language-select");
 
+    // Function to save language preference to localStorage
+    function saveLanguagePreference(lang) {
+        localStorage.setItem('userLanguagePreference', lang);
+    }
+
     function updateLanguage(lang) {
-      // 清除可能存在的舊訊息
-      const errorMessageElement = document.getElementById('auth-error-message');
-      if (errorMessageElement) {
+      const errorMessageElement = document.getElementById('auth-error-message'); // Clear previous error messages on language change
+      if (errorMessageElement) { 
         errorMessageElement.textContent = "";
       }
       const t = translations[lang];
@@ -354,13 +358,17 @@
       document.getElementById("how-it-works-link").textContent = t.howItWorks; // 使用 ID 更新文字
     }
 
+    // Event listener for language select change
     select.addEventListener("change", () => {
-      updateLanguage(select.value);
+      const selectedLang = select.value;
+      saveLanguagePreference(selectedLang); // Save the preference
+      updateLanguage(selectedLang); // Update the UI
     });
 
-    // Initialize with default language or stored preference
-    // For simplicity, defaulting to 'en'. You could store user's lang choice in localStorage.
-    const initialLang = select.value || "en";
+    // Initialize language on page load
+    const storedLang = localStorage.getItem('userLanguagePreference');
+    const initialLang = storedLang || select.value || "en"; // Use stored, then select value, then default 'en'
+    select.value = initialLang; // Set the select value to the initial language
     updateLanguage(initialLang);
   </script>
 </body>

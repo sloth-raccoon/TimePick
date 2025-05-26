@@ -353,10 +353,23 @@
     }
   };
 
-  let currentLang = "en";
+  // Function to save language preference to localStorage
+  function saveLanguagePreference(lang) {
+      localStorage.setItem('userLanguagePreference', lang);
+  }
+
+  // Function to load language preference from localStorage
+  function loadLanguagePreference() {
+      return localStorage.getItem('userLanguagePreference');
+  }
+
+  // Initialize currentLang from localStorage or default to "en"
+  // Also, ensure the language select dropdown reflects this initial language.
+  let currentLang = loadLanguagePreference() || document.getElementById("language-select").value || "en";
+  document.getElementById("language-select").value = currentLang;
+
   let currentUser = null;
   const createButton = document.getElementById("create-btn");
-
   function updateLanguage(lang) {
     currentLang = lang;
     const t = translations[lang];
@@ -769,7 +782,9 @@
 
   // Language switch event
   document.getElementById("language-select").addEventListener("change", e => {
-    updateLanguage(e.target.value);
+    const selectedLang = e.target.value;
+    saveLanguagePreference(selectedLang); // Save the new preference
+    updateLanguage(selectedLang); // Update the UI
   });
 
   // Initialization

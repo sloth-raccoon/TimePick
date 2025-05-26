@@ -296,6 +296,11 @@
     };
     firebase.initializeApp(firebaseConfig);
 
+    // Function to save language preference to localStorage
+    function saveLanguagePreference(lang) {
+        localStorage.setItem('userLanguagePreference', lang);
+    }
+
 
     // Define translations for MakeTime.html
     const translations = {
@@ -334,6 +339,11 @@
         alertNoScheduleToShare: "目前沒有可分享的行程。"
       }
     };
+
+    // Function to load language preference from localStorage
+    function loadLanguagePreference() {
+        return localStorage.getItem('userLanguagePreference');
+    }
 
     function handleNewSchedule() {
       // 清除 localStorage 中的 currentScheduleInfo，這樣 SetUpDate.html 就會是全新狀態
@@ -753,11 +763,13 @@
     }
 
     function changeLanguage(lang) {
-      window.currentLang = lang; // Store current language globally if needed by other functions
+      window.currentLang = lang; // Update global language variable
       // 使用在頂部定義的 translations 物件
       const t = translations[lang] || translations.en; 
       // 如果 lang 在 translations 中未定義，則預設為英文
       // 如果 translations.en 也未定義 (雖然不太可能，因為我們剛定義了它)，則 t 會是 undefined，需要進一步處理
+
+      saveLanguagePreference(lang); // Save the preference when language changes
 
       document.getElementById('myTimeLabel').textContent = t.myTimeLabel;
       document.getElementById('groupLabel').textContent = t.groupLabel;
@@ -767,11 +779,10 @@
       document.getElementById('mainTitle').textContent = initialTimetableName || t.mainTitle;
 
       window.currentTimeLabel = t.time;
-      // loadDataAndGenerateUI() will be called by onAuthStateChanged or if user is already logged in
-      // If tables are already generated, re-applying language to table headers might be needed if they contain translatable text
-      // For now, assuming table headers (dates/times) are not directly translated after generation.
+      
       if (currentUser) { // If user is already known, reload data for new language context if necessary
-        loadDataAndGenerateUI();
+        // Re-generating tables might be needed if headers contain translatable text
+        // For now, we rely on loadDataAndGenerateUI to be called by onAuthStateChanged
       } else { // If user not known, generate empty tables with correct time label
         generateTables();
       }
@@ -826,12 +837,16 @@
     }
 
     firebase.auth().onAuthStateChanged(user => {
+      // Load language preference as early as possible after auth state is known
+      const storedLang = loadLanguagePreference();
+      const initialLang = storedLang || document.querySelector('.language-switcher-maketime select').value || 'en';
+      window.currentLang = initialLang; // Set global language variable
+      document.querySelector('.language-switcher-maketime select').value = initialLang; // Set select value
+
       if (user) {
         currentUser = user;
-        console.log("MakeTime.html: User is signed in:", currentUser.uid);
-        const langSelectElement = document.querySelector('.header select');
-        const currentSelectedLang = langSelectElement ? langSelectElement.value : 'en';
-        changeLanguage(currentSelectedLang); // This will trigger loadDataAndGenerateUI
+        console.log("MakeTime.html: User is signed in:", currentUser.uid, "Applying language:", window.currentLang);
+        changeLanguage(window.currentLang); // Apply language and trigger loadDataAndGenerateUI
       } else {
         currentUser = null;
         console.log("MakeTime.html: User is signed out. Redirecting to homepage.");
