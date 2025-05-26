@@ -229,7 +229,7 @@
       <div class="left-buttons">
         <button id="btnNew" class="button" onclick="handleNewSchedule()">New</button>
         <button id="btnShare" class="button" onclick="handleShareSchedule()">Share</button>
-        <button id="btnDelete" class="button" onclick="handleDeleteSchedule()" style="background-color: #f44336; display: none;">Delete</button> <!-- 新增刪除按鈕, 初始隱藏 -->
+        <button id="btnDelete" class="button" onclick="handleDeleteSchedule()">Delete</button> <!-- 移除紅色背景和 display:none -->
       </div>
       <!-- Removed language switcher from here -->
     </div>
@@ -401,17 +401,6 @@
       }
     }
 
-    function updateDeleteButtonVisibility() {
-      const deleteButton = document.getElementById('btnDelete');
-      if (deleteButton) { // 確保按鈕元素存在
-        if (currentUser && currentScheduleId && initialCreatorUid === currentUser.uid) {
-          deleteButton.style.display = 'inline-block'; // 如果是創建者，顯示按鈕
-        } else {
-          deleteButton.style.display = 'none'; // 否則隱藏按鈕
-        }
-      }
-    }
-
     function loadDataAndGenerateUI() {
       const titleElement = document.getElementById('mainTitle');
       const descriptionElement = document.getElementById('scheduleDescription');
@@ -477,7 +466,7 @@
               if (descriptionElement) descriptionElement.textContent = initialDescription;
               
               generateTables(); // 先生成表格結構
-              updateDeleteButtonVisibility(); // 在獲取 metaData 並設定 initialCreatorUid 後更新刪除按鈕狀態
+              // updateDeleteButtonVisibility(); // 不再需要此函數來控制顯示/隱藏
 
               // 2. 監聽參與者數據的變化 (包括當前用戶的可用時間)
               const participantsRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants');
@@ -775,54 +764,7 @@
       } else { // If user not known, generate empty tables with correct time label
         generateTables();
       }
-      updateDeleteButtonVisibility(); // 語言切換後也嘗試更新按鈕狀態
-    }
-
-    // Tooltip 相關函數
-    const groupTooltipElement = document.getElementById('group-tooltip');
-
-    function showGroupTooltip(event) {
-      const cell = event.target.closest('td');
-      // 確保事件目標是 group-table 內的資料儲存格
-      if (!cell || !cell.dataset.date || cell.closest('table')?.id !== 'group-table') {
-        hideGroupTooltip(); // 如果不是，則隱藏 tooltip
-        return;
-      }
-
-      const participantsText = cell.dataset.participants;
-      if (participantsText && participantsText.trim() !== "") {
-        groupTooltipElement.textContent = participantsText;
-        groupTooltipElement.classList.add('tooltip-visible'); // 顯示 tooltip
-        
-        // 計算 tooltip 位置
-        const boxElement = cell.closest('.box'); // tooltip 相對於 .box 定位
-        const boxRect = boxElement.getBoundingClientRect();
-        const cellRect = cell.getBoundingClientRect();
-
-        // 相對於 .box 的位置
-        // 預設在儲存格下方，並稍微偏右以避免遮擋滑鼠
-        let top = cellRect.bottom - boxRect.top + 5; 
-        let left = cellRect.left - boxRect.left + 5;
-
-        // 邊界檢查，防止 tooltip 超出 .box 的可視範圍
-        if (left + groupTooltipElement.offsetWidth > boxElement.clientWidth) {
-          left = boxElement.clientWidth - groupTooltipElement.offsetWidth - 5;
-        }
-        if (top + groupTooltipElement.offsetHeight > boxElement.clientHeight) { // 如果下方空間不足
-          top = cellRect.top - boxRect.top - groupTooltipElement.offsetHeight - 5; // 嘗試顯示在儲存格上方
-        }
-        if (left < 0) left = 5; // 防止左邊超出
-        if (top < 0 && (cellRect.top - boxRect.top - groupTooltipElement.offsetHeight - 5 < 0) ) top = cellRect.bottom - boxRect.top + 5; // 如果上方也超出，還是放下方
-
-        groupTooltipElement.style.left = `${left}px`;
-        groupTooltipElement.style.top = `${top}px`;
-      } else {
-        hideGroupTooltip(); // 如果沒有參與者，則隱藏 tooltip
-      }
-    }
-
-    function hideGroupTooltip() {
-      groupTooltipElement.classList.remove('tooltip-visible'); // 隱藏 tooltip
+      // updateDeleteButtonVisibility(); // 不再需要此函數來控制顯示/隱藏
     }
 
     firebase.auth().onAuthStateChanged(user => {
