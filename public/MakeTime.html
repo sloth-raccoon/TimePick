@@ -229,7 +229,7 @@
       <div class="left-buttons">
         <button id="btnNew" class="button" onclick="handleNewSchedule()">New</button>
         <button id="btnShare" class="button" onclick="handleShareSchedule()">Share</button>
-        <button id="btnDelete" class="button" onclick="handleDeleteSchedule()">Delete</button> <!-- 移除紅色背景和 display:none -->
+        <button id="btnDelete" class="button" onclick="handleDeleteSchedule()" style="background-color: #f44336; display: none;">Delete</button> <!-- 新增刪除按鈕, 初始隱藏 -->
       </div>
       <!-- Removed language switcher from here -->
     </div>
@@ -296,11 +296,6 @@
     };
     firebase.initializeApp(firebaseConfig);
 
-    // Function to save language preference to localStorage
-    function saveLanguagePreference(lang) {
-        localStorage.setItem('userLanguagePreference', lang);
-    }
-
 
     // Define translations for MakeTime.html
     const translations = {
@@ -339,11 +334,6 @@
         alertNoScheduleToShare: "目前沒有可分享的行程。"
       }
     };
-
-    // Function to load language preference from localStorage
-    function loadLanguagePreference() {
-        return localStorage.getItem('userLanguagePreference');
-    }
 
     function handleNewSchedule() {
       // 清除 localStorage 中的 currentScheduleInfo，這樣 SetUpDate.html 就會是全新狀態
@@ -408,6 +398,17 @@
       } else {
         // 使用者點擊了「取消」，不做任何事
         console.log("Schedule deletion cancelled by user.");
+      }
+    }
+
+    function updateDeleteButtonVisibility() {
+      const deleteButton = document.getElementById('btnDelete');
+      if (deleteButton) { // 確保按鈕元素存在
+        if (currentUser && currentScheduleId && initialCreatorUid === currentUser.uid) {
+          deleteButton.style.display = 'inline-block'; // 如果是創建者，顯示按鈕
+        } else {
+          deleteButton.style.display = 'none'; // 否則隱藏按鈕
+        }
       }
     }
 
@@ -476,7 +477,7 @@
               if (descriptionElement) descriptionElement.textContent = initialDescription;
               
               generateTables(); // 先生成表格結構
-              // updateDeleteButtonVisibility(); // 不再需要此函數來控制顯示/隱藏
+              updateDeleteButtonVisibility(); // 在獲取 metaData 並設定 initialCreatorUid 後更新刪除按鈕狀態
 
               // 2. 監聽參與者數據的變化 (包括當前用戶的可用時間)
               const participantsRef = firebase.database().ref('schedules/' + currentScheduleId + '/participants');
@@ -752,11 +753,11 @@
     }
 
     function changeLanguage(lang) {
-      window.currentLang = lang; // Update global language variable
+      window.currentLang = lang; // Store current language globally if needed by other functions
       // 使用在頂部定義的 translations 物件
       const t = translations[lang] || translations.en; 
-
-      saveLanguagePreference(lang); // Save the preference when language changes
+      // 如果 lang 在 translations 中未定義，則預設為英文
+      // 如果 translations.en 也未定義 (雖然不太可能，因為我們剛定義了它)，則 t 會是 undefined，需要進一步處理
 
       document.getElementById('myTimeLabel').textContent = t.myTimeLabel;
       document.getElementById('groupLabel').textContent = t.groupLabel;
@@ -764,10 +765,11 @@
       document.getElementById('btnShare').textContent = t.btnShare;
       document.getElementById('btnDelete').textContent = t.btnDelete || "Delete";
       document.getElementById('mainTitle').textContent = initialTimetableName || t.mainTitle;
-      // 移除對 mainTitle 的翻譯，它應該只在 loadDataAndGenerateUI 中設定為載入的值
-      // document.getElementById('mainTitle').textContent = initialTimetableName; // This line is wrong here
 
       window.currentTimeLabel = t.time;
+      // loadDataAndGenerateUI() will be called by onAuthStateChanged or if user is already logged in
+      // If tables are already generated, re-applying language to table headers might be needed if they contain translatable text
+      // For now, assuming table headers (dates/times) are not directly translated after generation.
       if (currentUser) { // If user is already known, reload data for new language context if necessary
         loadDataAndGenerateUI();
       } else { // If user not known, generate empty tables with correct time label
@@ -824,17 +826,12 @@
     }
 
     firebase.auth().onAuthStateChanged(user => {
-      // Load language preference as early as possible after auth state is known
-      const storedLang = loadLanguagePreference();
-      const langSelectElement = document.querySelector('.language-switcher-maketime select');
-      const initialLang = storedLang || (langSelectElement ? langSelectElement.value : 'en');
-      window.currentLang = initialLang; // Set global language variable
-      if (langSelectElement) langSelectElement.value = initialLang; // Set select value
-
       if (user) {
         currentUser = user;
-        console.log("MakeTime.html: User is signed in:", currentUser.uid, "Applying language:", window.currentLang);
-        changeLanguage(window.currentLang); // Apply language and trigger loadDataAndGenerateUI
+        console.log("MakeTime.html: User is signed in:", currentUser.uid);
+        const langSelectElement = document.querySelector('.header select');
+        const currentSelectedLang = langSelectElement ? langSelectElement.value : 'en';
+        changeLanguage(currentSelectedLang); // This will trigger loadDataAndGenerateUI
       } else {
         currentUser = null;
         console.log("MakeTime.html: User is signed out. Redirecting to homepage.");
