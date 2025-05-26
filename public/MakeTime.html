@@ -296,6 +296,16 @@
     };
     firebase.initializeApp(firebaseConfig);
 
+    // Function to save language preference to localStorage
+    function saveLanguagePreference(lang) {
+        localStorage.setItem('userLanguagePreference', lang);
+    }
+
+    // Function to load language preference from localStorage
+    function loadLanguagePreference() {
+        return localStorage.getItem('userLanguagePreference');
+    }
+
 
     // Define translations for MakeTime.html
     const translations = {
@@ -754,10 +764,10 @@
 
     function changeLanguage(lang) {
       window.currentLang = lang; // Store current language globally if needed by other functions
+      saveLanguagePreference(lang); // Save the preference when language changes
+
       // 使用在頂部定義的 translations 物件
       const t = translations[lang] || translations.en; 
-      // 如果 lang 在 translations 中未定義，則預設為英文
-      // 如果 translations.en 也未定義 (雖然不太可能，因為我們剛定義了它)，則 t 會是 undefined，需要進一步處理
 
       document.getElementById('myTimeLabel').textContent = t.myTimeLabel;
       document.getElementById('groupLabel').textContent = t.groupLabel;
@@ -765,11 +775,15 @@
       document.getElementById('btnShare').textContent = t.btnShare;
       document.getElementById('btnDelete').textContent = t.btnDelete || "Delete";
       document.getElementById('mainTitle').textContent = initialTimetableName || t.mainTitle;
+      // If initialTimetableName is the default placeholder or empty, use translated.
+      // Otherwise, keep initialTimetableName (user-entered).
+      // This ensures that if a schedule is loaded, its name is preserved.
+      // If no schedule is loaded (e.g., error or direct access without ID), it uses a translated default.
+      document.getElementById('mainTitle').textContent = (initialTimetableName && initialTimetableName !== "TIMETABLE" && initialTimetableName.trim() !== "") ? initialTimetableName : t.mainTitle;
+      // Schedule description is set in loadDataAndGenerateUI and should not be translated here.
+      // document.getElementById('scheduleDescription').textContent will be set by loadDataAndGenerateUI
 
       window.currentTimeLabel = t.time;
-      // loadDataAndGenerateUI() will be called by onAuthStateChanged or if user is already logged in
-      // If tables are already generated, re-applying language to table headers might be needed if they contain translatable text
-      // For now, assuming table headers (dates/times) are not directly translated after generation.
       if (currentUser) { // If user is already known, reload data for new language context if necessary
         loadDataAndGenerateUI();
       } else { // If user not known, generate empty tables with correct time label
@@ -826,12 +840,21 @@
     }
 
     firebase.auth().onAuthStateChanged(user => {
+      // Load language preference as early as possible
+      const storedLang = loadLanguagePreference();
+      const langSelectElement = document.querySelector('.language-switcher-maketime select');
+      const defaultLangFromSelect = langSelectElement ? langSelectElement.value : 'en'; // Default to 'en' if select not found or no value
+      const initialLang = storedLang || defaultLangFromSelect;
+      
+      window.currentLang = initialLang; // Set global language variable
+      if (langSelectElement) {
+        langSelectElement.value = initialLang; // Set select dropdown to the loaded language
+      }
+
       if (user) {
         currentUser = user;
         console.log("MakeTime.html: User is signed in:", currentUser.uid);
-        const langSelectElement = document.querySelector('.header select');
-        const currentSelectedLang = langSelectElement ? langSelectElement.value : 'en';
-        changeLanguage(currentSelectedLang); // This will trigger loadDataAndGenerateUI
+        changeLanguage(window.currentLang); // Apply the determined language, this will trigger loadDataAndGenerateUI
       } else {
         currentUser = null;
         console.log("MakeTime.html: User is signed out. Redirecting to homepage.");
