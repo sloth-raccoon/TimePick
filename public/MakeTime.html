@@ -347,25 +347,28 @@
       }
       // 再次確認是否為創建者 (雖然按鈕顯示已控制，但多一層客戶端檢查)
       if (currentUser.uid !== initialCreatorUid) {
-        alert("You do not have permission to delete this schedule."); // 或者使用翻譯
+        // 實際上，如果按鈕是正確隱藏的，這段程式碼不會被非創建者觸發
+        // 但保留它作為一個額外的安全層（儘管主要的安全依賴 Firebase 規則）
+        alert("You do not have permission to delete this schedule."); // 可以為此添加翻譯
         return;
       }
 
-      if (!confirm(currentTranslation.alertConfirmDelete)) {
-        return;
+      if (confirm(currentTranslation.alertConfirmDelete)) { // confirm() 返回 true 表示確定，false 表示取消
+        const scheduleRef = firebase.database().ref('schedules/' + currentScheduleId);
+        scheduleRef.remove()
+          .then(() => {
+            console.log("Schedule " + currentScheduleId + " deleted successfully.");
+            localStorage.removeItem('currentScheduleInfo'); // 從 localStorage 移除
+            window.location.href = 'SetUpDate.html'; // 跳轉到 SetUpDate 頁面
+          })
+          .catch(error => {
+            console.error("Error deleting schedule:", error);
+            alert(currentTranslation.alertDeleteFailed + "\n" + error.message);
+          });
+      } else {
+        // 使用者點擊了「取消」，不做任何事
+        console.log("Schedule deletion cancelled by user.");
       }
-
-      const scheduleRef = firebase.database().ref('schedules/' + currentScheduleId);
-      scheduleRef.remove()
-        .then(() => {
-          console.log("Schedule " + currentScheduleId + " deleted successfully.");
-          localStorage.removeItem('currentScheduleInfo');
-          window.location.href = 'SetUpDate.html';
-        })
-        .catch(error => {
-          console.error("Error deleting schedule:", error);
-          alert(currentTranslation.alertDeleteFailed + "\n" + error.message);
-        });
     }
 
     function loadDataAndGenerateUI() {
@@ -733,9 +736,9 @@
       // 根據是否為創建者來決定是否顯示刪除按鈕
       const deleteButton = document.getElementById('btnDelete');
       if (deleteButton && currentUser && currentScheduleId && initialCreatorUid === currentUser.uid) {
-        deleteButton.style.display = 'inline-block';
+        deleteButton.style.display = 'inline-block'; // 如果是創建者，顯示按鈕
       } else if (deleteButton) {
-        deleteButton.style.display = 'none';
+        deleteButton.style.display = 'none'; // 否則隱藏按鈕
       }
     }
 
