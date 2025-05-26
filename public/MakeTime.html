@@ -199,6 +199,7 @@
       <div class="left-buttons">
         <button id="btnNew" class="button" onclick="handleNewSchedule()">New</button>
         <button id="btnShare" class="button" onclick="handleShareSchedule()">Share</button>
+        <button id="btnDelete" class="button" onclick="handleDeleteSchedule()" style="background-color: #f44336; display: none;">Delete</button> <!-- 新增刪除按鈕, 初始隱藏 -->
       </div>
       <!-- Removed language switcher from here -->
     </div>
@@ -244,6 +245,7 @@
     let initialEndHour = 17;   // 預設結束小時 (不包含)
     let initialInterval = 30;  // 預設時間間隔 (分鐘)
     let initialSelectedDates = []; // 存儲從 SetUpDate.html 選擇的日期
+    let initialCreatorUid = null; // 新增：用於儲存創建者的 UID
     let initialDescription = ""; // 存儲描述供將來使用
 
     let currentUser = null;
@@ -273,6 +275,10 @@
         btnNew: "New",
         btnShare: "Share",
         mainTitle: "TIMETABLE", // Default title if not loaded
+        btnDelete: "Delete", // 新增刪除按鈕的翻譯
+        alertConfirmDelete: "Are you sure you want to delete this timetable? This action cannot be undone.",
+        alertDeleteFailed: "Failed to delete the timetable.",
+        alertNoScheduleToDelete: "No schedule is currently loaded to delete.",
         time: "Time",
         alertTimePeriodUndefined: "Time period undefined (check start/end times and interval).",
         alertNoDatesSelected: "No dates selected.",
@@ -286,6 +292,10 @@
         btnNew: "新增",
         btnShare: "分享",
         mainTitle: "時間表", // Default title if not loaded
+        btnDelete: "刪除", // 新增刪除按鈕的翻譯
+        alertConfirmDelete: "您確定要刪除這個時間表嗎？此操作無法復原。",
+        alertDeleteFailed: "刪除時間表失敗。",
+        alertNoScheduleToDelete: "目前沒有可刪除的行程。",
         time: "時間",
         alertTimePeriodUndefined: "未定義時間段 (請檢查開始/結束時間和間隔)。",
         alertNoDatesSelected: "未選擇日期。",
@@ -327,6 +337,35 @@
         console.warn('navigator.clipboard.writeText API not available. Using prompt as fallback.');
         prompt("Please copy this link manually (clipboard API not available):", shareLink);
       }
+    }
+
+    function handleDeleteSchedule() {
+      const currentTranslation = translations[window.currentLang || 'en'] || translations.en;
+      if (!currentScheduleId || !currentUser) {
+        alert(currentTranslation.alertNoScheduleToDelete);
+        return;
+      }
+      // 再次確認是否為創建者 (雖然按鈕顯示已控制，但多一層客戶端檢查)
+      if (currentUser.uid !== initialCreatorUid) {
+        alert("You do not have permission to delete this schedule."); // 或者使用翻譯
+        return;
+      }
+
+      if (!confirm(currentTranslation.alertConfirmDelete)) {
+        return;
+      }
+
+      const scheduleRef = firebase.database().ref('schedules/' + currentScheduleId);
+      scheduleRef.remove()
+        .then(() => {
+          console.log("Schedule " + currentScheduleId + " deleted successfully.");
+          localStorage.removeItem('currentScheduleInfo');
+          window.location.href = 'SetUpDate.html';
+        })
+        .catch(error => {
+          console.error("Error deleting schedule:", error);
+          alert(currentTranslation.alertDeleteFailed + "\n" + error.message);
+        });
     }
 
     function loadDataAndGenerateUI() {
@@ -388,6 +427,7 @@
               if (metaData.toTime) initialEndHour = parseInt(metaData.toTime.split(':')[0], 10);
               if (metaData.timeInterval) initialInterval = parseInt(metaData.timeInterval, 10);
               if (metaData.dates && Array.isArray(metaData.dates)) initialSelectedDates = metaData.dates;
+              initialCreatorUid = metaData.creatorUid || null; // 儲存創建者 UID
 
               if (titleElement) titleElement.textContent = initialTimetableName;
               if (descriptionElement) descriptionElement.textContent = initialDescription;
@@ -678,6 +718,7 @@
       document.getElementById('groupLabel').textContent = t.groupLabel;
       document.getElementById('btnNew').textContent = t.btnNew;
       document.getElementById('btnShare').textContent = t.btnShare;
+      document.getElementById('btnDelete').textContent = t.btnDelete || "Delete";
       document.getElementById('mainTitle').textContent = initialTimetableName || t.mainTitle;
 
       window.currentTimeLabel = t.time;
@@ -688,6 +729,13 @@
         loadDataAndGenerateUI();
       } else { // If user not known, generate empty tables with correct time label
         generateTables();
+      }
+      // 根據是否為創建者來決定是否顯示刪除按鈕
+      const deleteButton = document.getElementById('btnDelete');
+      if (deleteButton && currentUser && currentScheduleId && initialCreatorUid === currentUser.uid) {
+        deleteButton.style.display = 'inline-block';
+      } else if (deleteButton) {
+        deleteButton.style.display = 'none';
       }
     }
 
