@@ -627,6 +627,14 @@
         document.addEventListener('mouseup', handleMyTimeMouseUp);
         myTimeTableElement.setAttribute('data-event-listeners-attached', 'true');
       }
+
+      // 為 Group Availability 表格添加事件監聽器 (如果尚未附加)
+      const groupTableElement = document.getElementById('group-table');
+      if (groupTableElement && !groupTableElement.hasAttribute('data-tooltip-listeners-attached')) {
+          groupTableElement.addEventListener('mouseover', showGroupTooltip);
+          groupTableElement.addEventListener('mouseout', hideGroupTooltip);
+          groupTableElement.setAttribute('data-tooltip-listeners-attached', 'true');
+      }
     }
 
     function applyMyTimeSelectionsToTable() {
@@ -780,13 +788,6 @@
         window.location.href = 'index.html';
       }
     });
-
-    // 為 Group Availability 表格添加事件監聽器 (使用事件委派)
-    const groupTableElement = document.getElementById('group-table');
-    if (groupTableElement) {
-        groupTableElement.addEventListener('mouseover', showGroupTooltip);
-        groupTableElement.addEventListener('mouseout', hideGroupTooltip);
-    }
   </script>
 </body>
 </html>
